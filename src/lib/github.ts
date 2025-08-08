@@ -1,5 +1,5 @@
 export type TimelineEvent = {
-  type: 'opened' | 'review_requested' | 'review' | 'merged' | 'closed';
+  type: 'opened' | 'review_requested' | 'review' | 'comment' | 'merged' | 'closed';
   at: string;
   by?: string;
   to?: string;
@@ -31,10 +31,12 @@ async function gh<T>(url: string, token?: string): Promise<T> {
 export async function fetchPRTimeline({ owner, repo, number, token }: FetchParams) {
   const base = `https://api.github.com/repos/${owner}/${repo}`;
 
-  const [pr, reviews, events] = await Promise.all([
+  const [pr, reviews, events, issueComments, reviewComments] = await Promise.all([
     gh<any>(`${base}/pulls/${number}`, token),
     gh<any[]>(`${base}/pulls/${number}/reviews`, token),
     gh<any[]>(`${base}/issues/${number}/events`, token),
+    gh<any[]>(`${base}/issues/${number}/comments`, token),
+    gh<any[]>(`${base}/pulls/${number}/comments`, token),
   ]);
 
   const timeline: TimelineEvent[] = [];
@@ -63,6 +65,13 @@ export async function fetchPRTimeline({ owner, repo, number, token }: FetchParam
       state: r.state,
       body: r.body,
     });
+  }
+
+  for (const c of issueComments) {
+    timeline.push({ type: 'comment', at: c.created_at, by: c.user?.login, body: c.body });
+  }
+  for (const c of reviewComments) {
+    timeline.push({ type: 'comment', at: c.created_at, by: c.user?.login, body: c.body });
   }
 
   if (pr?.merged_at) {

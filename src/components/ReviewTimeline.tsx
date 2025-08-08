@@ -2,6 +2,7 @@ import { TimelineEvent } from '@/lib/github';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { GitPullRequest, GitMerge, CheckCircle2, XCircle, Clock, UserCheck, MessageSquare } from 'lucide-react';
 import { format } from 'date-fns';
+import { CommentBubble } from '@/components/CommentBubble';
 
 type Props = {
   events: TimelineEvent[];
@@ -24,10 +25,13 @@ const eventMeta = (e: TimelineEvent) => {
       return { icon: GitMerge, label: 'Merged' };
     case 'closed':
       return { icon: XCircle, label: 'Closed' };
+    case 'comment':
+      return { icon: MessageSquare, label: 'Comment' };
   }
 };
 
 export function ReviewTimeline({ events, owner, repo, number }: Props) {
+  const author = events.find((e) => e.type === 'opened')?.by ?? '';
   return (
     <Card className="card-elevated">
       <CardHeader>
