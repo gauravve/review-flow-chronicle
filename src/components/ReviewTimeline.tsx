@@ -1,7 +1,7 @@
 import { TimelineEvent } from '@/lib/github';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { GitPullRequest, GitMerge, CheckCircle2, XCircle, Clock, UserCheck, MessageSquare } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, formatDistanceToNow, differenceInHours, differenceInMinutes } from 'date-fns';
 import { CommentBubble } from '@/components/CommentBubble';
 
 type Props = {
@@ -30,8 +30,41 @@ const eventMeta = (e: TimelineEvent) => {
   }
 };
 
+const calculateReviewMetrics = (events: TimelineEvent[]) => {
+  const opened = events.find(e => e.type === 'opened');
+  const firstReview = events.find(e => e.type === 'review');
+  const approved = events.find(e => e.type === 'review' && e.state === 'APPROVED');
+  const merged = events.find(e => e.type === 'merged');
+  const closed = events.find(e => e.type === 'closed');
+
+  if (!opened) return null;
+
+  const openedAt = new Date(opened.at);
+  const endEvent = merged || closed;
+  const endAt = endEvent ? new Date(endEvent.at) : new Date();
+
+  const timeToFirstReview = firstReview ? differenceInHours(new Date(firstReview.at), openedAt) : null;
+  const timeToApproval = approved ? differenceInHours(new Date(approved.at), openedAt) : null;
+  const totalTime = differenceInHours(endAt, openedAt);
+
+  return {
+    timeToFirstReview,
+    timeToApproval,
+    totalTime,
+    status: merged ? 'merged' : closed ? 'closed' : 'open'
+  };
+};
+
+const formatDuration = (hours: number) => {
+  if (hours < 1) return `${Math.round(hours * 60)}m`;
+  if (hours < 24) return `${Math.round(hours)}h`;
+  return `${Math.round(hours / 24)}d`;
+};
+
 export function ReviewTimeline({ events, owner, repo, number }: Props) {
   const author = events.find((e) => e.type === 'opened')?.by ?? '';
+  const metrics = calculateReviewMetrics(events);
+  
   return (
     <Card className="card-elevated">
       <CardHeader>
@@ -39,6 +72,22 @@ export function ReviewTimeline({ events, owner, repo, number }: Props) {
           <span>{owner}/{repo} • PR #{number}</span>
           <a className="text-sm text-primary underline-offset-4 hover:underline" href={`https://github.com/${owner}/${repo}/pull/${number}`} target="_blank" rel="noreferrer">View on GitHub</a>
         </CardTitle>
+        {metrics && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4 p-4 bg-secondary/50 rounded-lg">
+            <div className="text-center">
+              <div className="text-2xl font-bold text-primary">{metrics.timeToFirstReview ? formatDuration(metrics.timeToFirstReview) : 'N/A'}</div>
+              <div className="text-sm text-muted-foreground">Time to first review</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-primary">{metrics.timeToApproval ? formatDuration(metrics.timeToApproval) : 'N/A'}</div>
+              <div className="text-sm text-muted-foreground">Time to approval</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-primary">{formatDuration(metrics.totalTime)}</div>
+              <div className="text-sm text-muted-foreground">Total time ({metrics.status})</div>
+            </div>
+          </div>
+        )}
       </CardHeader>
       <CardContent>
         <ol className="relative border-s border-border ps-6">
