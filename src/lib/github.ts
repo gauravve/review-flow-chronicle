@@ -84,3 +84,34 @@ export async function fetchPRTimeline({ owner, repo, number, token }: FetchParam
 
   return { pr, timeline };
 }
+
+// Fetch PRs created in the last 14 days (default), sorted newest first
+export async function fetchRecentPRs({ owner, repo, token, days = 14 }: { owner: string; repo: string; token?: string; days?: number }) {
+  const base = `https://api.github.com/repos/${owner}/${repo}`;
+  const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+  const results: any[] = [];
+  let page = 1;
+  const perPage = 100;
+
+  while (page <= 5) { // safety limit to avoid too many requests
+    const prs = await gh<any[]>(`${base}/pulls?state=all&per_page=${perPage}&sort=created&direction=desc&page=${page}`, token);
+    if (!prs.length) break;
+
+    for (const pr of prs) {
+      const createdAt = new Date(pr.created_at);
+      if (createdAt >= cutoff) {
+        results.push(pr);
+      }
+    }
+
+    const last = prs[prs.length - 1];
+    if (!last || new Date(last.created_at) < cutoff) break;
+
+    page += 1;
+  }
+
+  // Ensure newest first
+  results.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  return results;
+}

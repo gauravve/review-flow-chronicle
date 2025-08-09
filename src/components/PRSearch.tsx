@@ -7,7 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 export type PRQuery = {
   owner: string;
   repo: string;
-  number: number;
+  number?: number;
   token?: string;
 };
 
@@ -36,8 +36,8 @@ export function PRSearch({ onSearch, loading }: Props) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const parsed = parseRepo(repoFull.trim());
-    const num = Number(prNumber);
-    if (!parsed || !num) return;
+    const num = prNumber ? Number(prNumber) : undefined;
+    if (!parsed) return;
     if (remember && token) localStorage.setItem('gh_token', token);
     onSearch({ owner: parsed.owner, repo: parsed.repo, number: num, token: token || undefined });
   };
@@ -64,7 +64,7 @@ export function PRSearch({ onSearch, loading }: Props) {
           </div>
           <div className="md:col-span-6 flex justify-end">
             <Button type="submit" variant="hero" disabled={loading}>
-              {loading ? 'Loading…' : 'Build Timeline'}
+              {loading ? 'Loading…' : (prNumber ? 'Build Timeline' : 'Show PRs')}
             </Button>
           </div>
         </form>

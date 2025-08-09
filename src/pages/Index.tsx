@@ -1,12 +1,15 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { PRSearch, PRQuery } from '@/components/PRSearch';
 import { ReviewTimeline } from '@/components/ReviewTimeline';
 import { useQuery } from '@tanstack/react-query';
-import { fetchPRTimeline } from '@/lib/github';
+import { fetchPRTimeline, fetchRecentPRs } from '@/lib/github';
 import { Button } from '@/components/ui/button';
+import { RepoMetrics } from '@/components/RepoMetrics';
+import { PRList } from '@/components/PRList';
 
 const Index = () => {
-  const [query, setQuery] = useState<PRQuery | null>(null);
+  const [repoInfo, setRepoInfo] = useState<{ owner: string; repo: string; token?: string } | null>(null);
+  const [selectedNumber, setSelectedNumber] = useState<number | null>(null);
   const heroRef = useRef<HTMLDivElement | null>(null);
 
   const onMouseMove = useCallback((e: React.MouseEvent) => {
@@ -17,20 +20,31 @@ const Index = () => {
     (e.currentTarget as HTMLDivElement).style.setProperty('--cursor-y', `${y}%`);
   }, []);
 
-  const { data, isFetching, error } = useQuery({
-    queryKey: ['prTimeline', query?.owner, query?.repo, query?.number, Boolean(query?.token)],
-    queryFn: () => fetchPRTimeline({ owner: query!.owner, repo: query!.repo, number: query!.number, token: query!.token }),
-    enabled: !!query,
+  const recentPRs = useQuery({
+    queryKey: ['recentPRs', repoInfo?.owner, repoInfo?.repo, Boolean(repoInfo?.token)],
+    queryFn: () => fetchRecentPRs({ owner: repoInfo!.owner, repo: repoInfo!.repo, token: repoInfo!.token }),
+    enabled: !!repoInfo,
   });
 
-  const hasResults = useMemo(() => Boolean(data?.timeline?.length), [data]);
+  const timelineQuery = useQuery({
+    queryKey: ['prTimeline', repoInfo?.owner, repoInfo?.repo, selectedNumber, Boolean(repoInfo?.token)],
+    queryFn: () => fetchPRTimeline({ owner: repoInfo!.owner, repo: repoInfo!.repo, number: selectedNumber!, token: repoInfo!.token }),
+    enabled: !!repoInfo && !!selectedNumber,
+  });
+
+  const handleSearch = (q: PRQuery) => {
+    setRepoInfo({ owner: q.owner, repo: q.repo, token: q.token });
+    setSelectedNumber(q.number ?? null);
+  };
+
+  const hasList = !!repoInfo && (recentPRs.data?.length ?? 0) > 0;
 
   return (
     <main>
       <section ref={heroRef} onMouseMove={onMouseMove} className="bg-hero">
         <div className="container py-16 md:py-24 text-center">
           <h1 className="text-4xl md:text-6xl font-bold tracking-tight mb-4">GitHub PR Review Timeline</h1>
-          <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-6">Instantly visualize PR review progress: review requests, approvals, changes requested, and merges. Bring clarity to your review flow.</p>
+          <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-6">Instantly visualize PR review progress and repository metrics for the last two weeks.</p>
           <div className="flex items-center justify-center gap-3">
             <Button variant="hero" onClick={() => heroRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })}>Get Started</Button>
             <a className="text-sm text-primary underline-offset-4 hover:underline" href="https://docs.github.com/en/rest" target="_blank" rel="noreferrer">GitHub API Docs</a>
@@ -39,17 +53,34 @@ const Index = () => {
       </section>
 
       <section className="container py-10 md:py-12">
-        <PRSearch onSearch={setQuery} loading={isFetching} />
-        {error ? (
-          <div className="mt-6 text-destructive">{(error as Error).message}</div>
+        <PRSearch onSearch={handleSearch} loading={recentPRs.isFetching || timelineQuery.isFetching} />
+        {recentPRs.error ? (
+          <div className="mt-6 text-destructive">{(recentPRs.error as Error).message}</div>
         ) : null}
-        {hasResults && query ? (
-          <div className="mt-8">
-            <ReviewTimeline events={data!.timeline} owner={query.owner} repo={query.repo} number={query.number} />
+
+        {hasList ? (
+          <div className="mt-8 space-y-6">
+            <RepoMetrics prs={recentPRs.data!} />
+            <div>
+              <h2 className="sr-only">Pull Requests (last 2 weeks)</h2>
+              <PRList prs={recentPRs.data!} onSelect={(n) => setSelectedNumber(n)} selected={selectedNumber ?? undefined} />
+            </div>
           </div>
+        ) : repoInfo ? (
+          <div className="mt-8 text-center text-muted-foreground">No PRs in the last 2 weeks.</div>
         ) : (
-          <div className="mt-8 text-center text-muted-foreground">Enter a repository and PR number to build the timeline.</div>
+          <div className="mt-8 text-center text-muted-foreground">Enter a repository to see PR metrics and recent PRs.</div>
         )}
+
+        {timelineQuery.error ? (
+          <div className="mt-6 text-destructive">{(timelineQuery.error as Error).message}</div>
+        ) : null}
+
+        {repoInfo && selectedNumber && timelineQuery.data ? (
+          <div className="mt-8">
+            <ReviewTimeline events={timelineQuery.data.timeline} owner={repoInfo.owner} repo={repoInfo.repo} number={selectedNumber} />
+          </div>
+        ) : null}
       </section>
     </main>
   );
