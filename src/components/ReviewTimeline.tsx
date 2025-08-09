@@ -32,8 +32,12 @@ const eventMeta = (e: TimelineEvent) => {
 
 const calculateReviewMetrics = (events: TimelineEvent[]) => {
   const opened = events.find(e => e.type === 'opened');
-  const firstReview = events.find(e => e.type === 'review');
-  const approved = events.find(e => e.type === 'review' && e.state === 'APPROVED');
+  
+  // Find all review events (submitted reviews, not review requests)
+  const reviewEvents = events.filter(e => e.type === 'review');
+  const firstReview = reviewEvents.length > 0 ? reviewEvents[0] : null;
+  const approved = reviewEvents.find(e => e.state === 'APPROVED');
+  
   const merged = events.find(e => e.type === 'merged');
   const closed = events.find(e => e.type === 'closed');
 
