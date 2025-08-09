@@ -31,15 +31,23 @@ const eventMeta = (e: TimelineEvent) => {
 };
 
 const calculateReviewMetrics = (events: TimelineEvent[]) => {
+  console.log('All timeline events:', events);
+  
   const opened = events.find(e => e.type === 'opened');
   
   // Find all review events (submitted reviews, not review requests)
   const reviewEvents = events.filter(e => e.type === 'review');
+  console.log('Review events found:', reviewEvents);
+  
   const firstReview = reviewEvents.length > 0 ? reviewEvents[0] : null;
   const approved = reviewEvents.find(e => e.state === 'APPROVED');
   
   const merged = events.find(e => e.type === 'merged');
   const closed = events.find(e => e.type === 'closed');
+
+  console.log('First review:', firstReview);
+  console.log('Approved review:', approved);
+  console.log('Opened event:', opened);
 
   if (!opened) return null;
 
@@ -50,6 +58,8 @@ const calculateReviewMetrics = (events: TimelineEvent[]) => {
   const timeToFirstReview = firstReview ? differenceInHours(new Date(firstReview.at), openedAt) : null;
   const timeToApproval = approved ? differenceInHours(new Date(approved.at), openedAt) : null;
   const totalTime = differenceInHours(endAt, openedAt);
+
+  console.log('Calculated metrics:', { timeToFirstReview, timeToApproval, totalTime });
 
   return {
     timeToFirstReview,
