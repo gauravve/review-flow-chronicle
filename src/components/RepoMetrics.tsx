@@ -25,6 +25,9 @@ export function RepoMetrics({ prs }: Props) {
   return (
     <Card className="card-elevated">
       <CardContent className="p-4 md:p-6">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-lg font-semibold">PR metrics (last 2 weeks)</h2>
+        </div>
         <div className="flex items-stretch gap-4 overflow-x-auto py-1">
           <div className="min-w-[220px] group relative overflow-hidden rounded-lg border bg-card p-4 animate-fade-in hover-scale">
             <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent pointer-events-none" aria-hidden="true" />
