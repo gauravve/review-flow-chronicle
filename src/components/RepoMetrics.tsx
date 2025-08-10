@@ -1,5 +1,5 @@
 import { Card, CardContent } from '@/components/ui/card';
-
+import { GitPullRequest, GitMerge, Clock, CircleDot, CircleX } from 'lucide-react';
 function formatDurationFromMs(ms: number) {
   const hours = ms / (1000 * 60 * 60);
   if (hours < 1) return `${Math.round(hours * 60)}m`;
@@ -26,27 +26,67 @@ export function RepoMetrics({ prs }: Props) {
     <Card className="card-elevated">
       <CardContent className="p-6">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="text-center">
-            <div className="text-2xl font-bold text-primary">{total}</div>
-            <div className="text-sm text-muted-foreground">PRs (last 2 weeks)</div>
+          <div className="group relative overflow-hidden rounded-lg border bg-card p-4 animate-fade-in hover-scale">
+            <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent pointer-events-none" aria-hidden="true" />
+            <div className="relative flex items-center gap-3">
+              <div className="h-10 w-10 rounded-md bg-primary/10 text-primary flex items-center justify-center shadow-sm">
+                <GitPullRequest className="h-5 w-5" />
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-primary">{total}</div>
+                <div className="text-sm text-muted-foreground">PRs (last 2 weeks)</div>
+              </div>
+            </div>
           </div>
-          <div className="text-center">
-            <div className="text-2xl font-bold text-primary">{open}</div>
-            <div className="text-sm text-muted-foreground">Open</div>
+          <div className="group relative overflow-hidden rounded-lg border bg-card p-4 animate-fade-in hover-scale">
+            <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent pointer-events-none" aria-hidden="true" />
+            <div className="relative flex items-center gap-3">
+              <div className="h-10 w-10 rounded-md bg-primary/10 text-primary flex items-center justify-center shadow-sm">
+                <CircleDot className="h-5 w-5" />
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-primary">{open}</div>
+                <div className="text-sm text-muted-foreground">Open</div>
+              </div>
+            </div>
           </div>
-          <div className="text-center">
-            <div className="text-2xl font-bold text-primary">{merged}</div>
-            <div className="text-sm text-muted-foreground">Merged</div>
+          <div className="group relative overflow-hidden rounded-lg border bg-card p-4 animate-fade-in hover-scale">
+            <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent pointer-events-none" aria-hidden="true" />
+            <div className="relative flex items-center gap-3">
+              <div className="h-10 w-10 rounded-md bg-primary/10 text-primary flex items-center justify-center shadow-sm">
+                <GitMerge className="h-5 w-5" />
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-primary">{merged}</div>
+                <div className="text-sm text-muted-foreground">Merged</div>
+              </div>
+            </div>
           </div>
-          <div className="text-center">
-            <div className="text-2xl font-bold text-primary">{closed}</div>
-            <div className="text-sm text-muted-foreground">Closed</div>
+          <div className="group relative overflow-hidden rounded-lg border bg-card p-4 animate-fade-in hover-scale">
+            <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent pointer-events-none" aria-hidden="true" />
+            <div className="relative flex items-center gap-3">
+              <div className="h-10 w-10 rounded-md bg-primary/10 text-primary flex items-center justify-center shadow-sm">
+                <CircleX className="h-5 w-5" />
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-primary">{closed}</div>
+                <div className="text-sm text-muted-foreground">Closed</div>
+              </div>
+            </div>
           </div>
         </div>
         <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="text-center">
-            <div className="text-2xl font-bold text-primary">{mergedPRs.length ? formatDurationFromMs(avgMergeMs) : 'N/A'}</div>
-            <div className="text-sm text-muted-foreground">Avg time to merge</div>
+          <div className="group relative overflow-hidden rounded-lg border bg-card p-4 animate-fade-in hover-scale">
+            <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent pointer-events-none" aria-hidden="true" />
+            <div className="relative flex items-center gap-3">
+              <div className="h-10 w-10 rounded-md bg-primary/10 text-primary flex items-center justify-center shadow-sm">
+                <Clock className="h-5 w-5" />
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-primary">{mergedPRs.length ? formatDurationFromMs(avgMergeMs) : 'N/A'}</div>
+                <div className="text-sm text-muted-foreground">Avg time to merge</div>
+              </div>
+            </div>
           </div>
         </div>
       </CardContent>

@@ -6,10 +6,11 @@ import { fetchPRTimeline, fetchRecentPRs } from '@/lib/github';
 import { Button } from '@/components/ui/button';
 import { RepoMetrics } from '@/components/RepoMetrics';
 import { PRList } from '@/components/PRList';
-
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 const Index = () => {
   const [repoInfo, setRepoInfo] = useState<{ owner: string; repo: string; token?: string } | null>(null);
   const [selectedNumber, setSelectedNumber] = useState<number | null>(null);
+  const [listOpen, setListOpen] = useState(true);
   const heroRef = useRef<HTMLDivElement | null>(null);
 
   const onMouseMove = useCallback((e: React.MouseEvent) => {
@@ -61,10 +62,28 @@ const Index = () => {
         {hasList ? (
           <div className="mt-8 space-y-6">
             <RepoMetrics prs={recentPRs.data!} />
-            <div>
-              <h2 className="sr-only">Pull Requests (last 2 weeks)</h2>
-              <PRList prs={recentPRs.data!} onSelect={(n) => setSelectedNumber(n)} selected={selectedNumber ?? undefined} />
-            </div>
+            <Collapsible open={listOpen} onOpenChange={setListOpen}>
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-semibold">Pull Requests (last 2 weeks)</h2>
+                <CollapsibleTrigger asChild>
+                  <Button variant="outline" size="sm" aria-expanded={listOpen}>
+                    {listOpen ? 'Collapse PR list' : 'Show PR list'}
+                  </Button>
+                </CollapsibleTrigger>
+              </div>
+              <CollapsibleContent>
+                <div className="mt-4">
+                  <PRList
+                    prs={recentPRs.data!}
+                    onSelect={(n) => {
+                      setSelectedNumber(n);
+                      setListOpen(false);
+                    }}
+                    selected={selectedNumber ?? undefined}
+                  />
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
           </div>
         ) : repoInfo ? (
           <div className="mt-8 text-center text-muted-foreground">No PRs in the last 2 weeks.</div>
