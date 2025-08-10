@@ -24,9 +24,9 @@ export function RepoMetrics({ prs }: Props) {
 
   return (
     <Card className="card-elevated">
-      <CardContent className="p-6">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="group relative overflow-hidden rounded-lg border bg-card p-4 animate-fade-in hover-scale">
+      <CardContent className="p-4 md:p-6">
+        <div className="flex items-stretch gap-4 overflow-x-auto py-1">
+          <div className="min-w-[220px] group relative overflow-hidden rounded-lg border bg-card p-4 animate-fade-in hover-scale">
             <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent pointer-events-none" aria-hidden="true" />
             <div className="relative flex items-center gap-3">
               <div className="h-10 w-10 rounded-md bg-primary/10 text-primary flex items-center justify-center shadow-sm">
@@ -38,7 +38,7 @@ export function RepoMetrics({ prs }: Props) {
               </div>
             </div>
           </div>
-          <div className="group relative overflow-hidden rounded-lg border bg-card p-4 animate-fade-in hover-scale">
+          <div className="min-w-[220px] group relative overflow-hidden rounded-lg border bg-card p-4 animate-fade-in hover-scale">
             <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent pointer-events-none" aria-hidden="true" />
             <div className="relative flex items-center gap-3">
               <div className="h-10 w-10 rounded-md bg-primary/10 text-primary flex items-center justify-center shadow-sm">
@@ -50,7 +50,7 @@ export function RepoMetrics({ prs }: Props) {
               </div>
             </div>
           </div>
-          <div className="group relative overflow-hidden rounded-lg border bg-card p-4 animate-fade-in hover-scale">
+          <div className="min-w-[220px] group relative overflow-hidden rounded-lg border bg-card p-4 animate-fade-in hover-scale">
             <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent pointer-events-none" aria-hidden="true" />
             <div className="relative flex items-center gap-3">
               <div className="h-10 w-10 rounded-md bg-primary/10 text-primary flex items-center justify-center shadow-sm">
@@ -62,7 +62,7 @@ export function RepoMetrics({ prs }: Props) {
               </div>
             </div>
           </div>
-          <div className="group relative overflow-hidden rounded-lg border bg-card p-4 animate-fade-in hover-scale">
+          <div className="min-w-[220px] group relative overflow-hidden rounded-lg border bg-card p-4 animate-fade-in hover-scale">
             <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent pointer-events-none" aria-hidden="true" />
             <div className="relative flex items-center gap-3">
               <div className="h-10 w-10 rounded-md bg-primary/10 text-primary flex items-center justify-center shadow-sm">
@@ -74,9 +74,7 @@ export function RepoMetrics({ prs }: Props) {
               </div>
             </div>
           </div>
-        </div>
-        <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="group relative overflow-hidden rounded-lg border bg-card p-4 animate-fade-in hover-scale">
+          <div className="min-w-[220px] group relative overflow-hidden rounded-lg border bg-card p-4 animate-fade-in hover-scale">
             <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent pointer-events-none" aria-hidden="true" />
             <div className="relative flex items-center gap-3">
               <div className="h-10 w-10 rounded-md bg-primary/10 text-primary flex items-center justify-center shadow-sm">
