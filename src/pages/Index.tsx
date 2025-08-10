@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { RepoMetrics } from '@/components/RepoMetrics';
 import { PRList } from '@/components/PRList';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { RepoTrends } from '@/components/RepoTrends';
 const Index = () => {
   const [repoInfo, setRepoInfo] = useState<{ owner: string; repo: string; token?: string } | null>(null);
   const [selectedNumber, setSelectedNumber] = useState<number | null>(null);
@@ -62,6 +63,7 @@ const Index = () => {
         {hasList ? (
           <div className="mt-8 space-y-6">
             <RepoMetrics prs={recentPRs.data!} />
+            <RepoTrends owner={repoInfo!.owner} repo={repoInfo!.repo} token={repoInfo!.token} />
             <Collapsible open={listOpen} onOpenChange={setListOpen}>
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-semibold">Pull Requests (last 2 weeks)</h2>
