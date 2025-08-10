@@ -126,10 +126,10 @@ export function RepoTrends({ owner, repo, token }: Props) {
                 type="monotone"
                 dataKey="avgMergeDays"
                 name="Avg merge (days)"
-                stroke="hsl(var(--secondary))"
+                stroke="hsl(var(--foreground))"
                 strokeWidth={2}
-                dot={{ r: 3, stroke: 'hsl(var(--secondary))', fill: 'hsl(var(--background))' }}
-                activeDot={{ r: 5 }}
+                dot={{ r: 3, stroke: 'hsl(var(--foreground))', fill: 'hsl(var(--card))' }}
+                activeDot={{ r: 5, stroke: 'hsl(var(--foreground))', fill: 'hsl(var(--card))' }}
               />
             </ComposedChart>
           </ResponsiveContainer>
