@@ -11,7 +11,8 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from '@/components/ui/pagination';
-import { formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow, formatDistanceStrict } from 'date-fns';
+import { Timer } from 'lucide-react';
 
 type Props = {
   prs: any[];
@@ -117,6 +118,10 @@ export function PRList({ prs, onSelect, selected }: Props) {
           {pageItems.map((pr: any) => {
             const isSelected = selected === pr.number;
             const state = pr.merged_at ? 'merged' : pr.state;
+            const metricLabel = pr.merged_at ? 'TTM' : 'Open';
+            const metricValue = pr.merged_at
+              ? formatDistanceStrict(new Date(pr.created_at), new Date(pr.merged_at))
+              : formatDistanceToNow(new Date(pr.created_at));
             return (
               <li key={pr.id}>
                 <button
@@ -134,6 +139,15 @@ export function PRList({ prs, onSelect, selected }: Props) {
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
+                      <Badge
+                        variant="secondary"
+                        className="gap-1 hover-scale shadow-sm"
+                        aria-label={`${pr.merged_at ? 'Time to merge' : 'Time open'} ${metricValue}`}
+                      >
+                        <Timer className="h-3.5 w-3.5" aria-hidden="true" />
+                        <span className="font-medium">{metricLabel}:</span>
+                        <span>{metricValue}</span>
+                      </Badge>
                       <Badge variant={state === 'open' ? 'default' : state === 'merged' ? 'secondary' : 'outline'} className="capitalize">
                         {state}
                       </Badge>
