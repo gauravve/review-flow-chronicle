@@ -24,7 +24,7 @@ const Index = () => {
 
   const recentPRs = useQuery({
     queryKey: ['recentPRs', repoInfo?.owner, repoInfo?.repo, Boolean(repoInfo?.token)],
-    queryFn: () => fetchRecentPRs({ owner: repoInfo!.owner, repo: repoInfo!.repo, token: repoInfo!.token }),
+    queryFn: () => fetchRecentPRs({ owner: repoInfo!.owner, repo: repoInfo!.repo, token: repoInfo!.token, days: 56 }),
     enabled: !!repoInfo,
   });
 
@@ -66,7 +66,7 @@ const Index = () => {
             <RepoTrends owner={repoInfo!.owner} repo={repoInfo!.repo} token={repoInfo!.token} />
             <Collapsible open={listOpen} onOpenChange={setListOpen}>
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold">Pull Requests (last 2 weeks)</h2>
+                <h2 className="text-lg font-semibold">Pull Requests (last 8 weeks)</h2>
                 <CollapsibleTrigger asChild>
                   <Button variant="outline" size="sm" aria-expanded={listOpen}>
                     {listOpen ? 'Collapse PR list' : 'Show PR list'}
@@ -88,7 +88,7 @@ const Index = () => {
             </Collapsible>
           </div>
         ) : repoInfo ? (
-          <div className="mt-8 text-center text-muted-foreground">No PRs in the last 2 weeks.</div>
+          <div className="mt-8 text-center text-muted-foreground">No PRs in the last 8 weeks.</div>
         ) : (
           <div className="mt-8 text-center text-muted-foreground">Enter a repository to see PR metrics and recent PRs.</div>
         )}

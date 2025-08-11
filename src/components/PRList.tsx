@@ -27,22 +27,20 @@ export function PRList({ prs, onSelect, selected }: Props) {
   );
 
   const [numberQuery, setNumberQuery] = useState('');
-  const [labelQuery, setLabelQuery] = useState('');
+  const [titleQuery, setTitleQuery] = useState('');
   const [page, setPage] = useState(1);
-  const pageSize = 10;
+  const pageSize = 20;
 
   const filtered = useMemo(() => {
     const nq = numberQuery.trim();
-    const lq = labelQuery.trim().toLowerCase();
+    const tq = titleQuery.trim().toLowerCase();
     return items.filter((pr: any) => {
       const matchesNumber = nq ? String(pr.number).includes(nq) : true;
-      const labels: string[] = Array.isArray(pr.labels)
-        ? pr.labels.map((l: any) => (typeof l === 'string' ? l : l?.name)).filter(Boolean)
-        : [];
-      const matchesLabel = lq ? labels.some((name) => name.toLowerCase().includes(lq)) : true;
-      return matchesNumber && matchesLabel;
+      const title: string = String(pr.title || '');
+      const matchesTitle = tq ? title.toLowerCase().includes(tq) : true;
+      return matchesNumber && matchesTitle;
     });
-  }, [items, numberQuery, labelQuery]);
+  }, [items, numberQuery, titleQuery]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const currentPage = Math.min(page, totalPages);
@@ -97,18 +95,18 @@ export function PRList({ prs, onSelect, selected }: Props) {
               />
             </div>
             <div className="md:col-span-2">
-              <label htmlFor="pr-label" className="sr-only">
-                Search by label
+              <label htmlFor="pr-title" className="sr-only">
+                Search by title
               </label>
               <Input
-                id="pr-label"
-                placeholder="Search by label"
-                value={labelQuery}
+                id="pr-title"
+                placeholder="Search by title"
+                value={titleQuery}
                 onChange={(e) => {
-                  setLabelQuery(e.target.value);
+                  setTitleQuery(e.target.value);
                   setPage(1);
                 }}
-                aria-label="Search by PR label"
+                aria-label="Search by PR title"
               />
             </div>
           </div>
