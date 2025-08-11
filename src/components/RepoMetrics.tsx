@@ -12,12 +12,13 @@ type Props = {
 };
 
 export function RepoMetrics({ prs }: Props) {
-  const total = prs.length;
-  const merged = prs.filter((p) => Boolean(p.merged_at)).length;
-  const open = prs.filter((p) => p.state === 'open').length;
-  const closed = prs.filter((p) => p.state === 'closed' && !p.merged_at).length;
+  const readyPRs = prs.filter((p) => !p.draft);
+  const total = readyPRs.length;
+  const merged = readyPRs.filter((p) => Boolean(p.merged_at)).length;
+  const open = readyPRs.filter((p) => p.state === 'open').length;
+  const closed = readyPRs.filter((p) => p.state === 'closed' && !p.merged_at).length;
 
-  const mergedPRs = prs.filter((p) => p.merged_at);
+  const mergedPRs = readyPRs.filter((p) => p.merged_at);
   const avgMergeMs = mergedPRs.length
     ? mergedPRs.reduce((acc: number, p: any) => acc + (new Date(p.merged_at).getTime() - new Date(p.created_at).getTime()), 0) / mergedPRs.length
     : 0;

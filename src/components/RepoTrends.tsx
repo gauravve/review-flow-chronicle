@@ -60,6 +60,7 @@ export function RepoTrends({ owner, repo, token }: Props) {
     months.forEach((k) => counters.set(k, { count: 0, mergeDurationsMs: [] }));
 
     for (const pr of query.data as any[]) {
+      if (pr.draft) continue; // exclude draft PRs from metrics
       const created = new Date(pr.created_at);
       const createdKey = monthKey(new Date(created.getFullYear(), created.getMonth(), 1));
       if (counters.has(createdKey)) {
