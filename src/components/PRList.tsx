@@ -129,8 +129,12 @@ export function PRList({ prs, onSelect, selected }: Props) {
                 >
                   <div className="flex items-start justify-between gap-4">
                     <div>
-                      <div className="font-semibold">
-                        #{pr.number} • {pr.title}
+                      <div className="font-semibold flex items-center gap-2">
+                        <span>#{pr.number}</span>
+                        {pr.draft ? (
+                          <Badge variant="outline" className="uppercase">Draft</Badge>
+                        ) : null}
+                        <span>• {pr.title}</span>
                       </div>
                       <div className="text-sm text-muted-foreground mt-1">
                         by {pr.user?.login} • {formatDistanceToNow(new Date(pr.created_at), { addSuffix: true })}
