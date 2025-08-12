@@ -163,7 +163,7 @@ export function PRList({ prs, onSelect, selected, owner, repo, token }: Props) {
               : formatDistanceToNow(new Date(pr.created_at));
             const buildState = buildStatuses[pr.number] as 'success' | 'failure' | 'pending' | undefined;
             const buildLabel = buildState === 'success' ? 'Passing' : buildState === 'failure' ? 'Failing' : buildState === 'pending' ? 'Pending' : 'Unknown';
-            const buildVariant = buildState === 'success' ? 'secondary' : buildState === 'failure' ? 'destructive' : 'outline';
+            const buildVariant = buildState === 'success' ? 'success' : buildState === 'failure' ? 'destructive' : buildState === 'pending' ? 'default' : 'outline';
             const BuildIcon = buildState === 'success' ? CheckCircle2 : buildState === 'failure' ? XCircle : Clock;
             return (
 
