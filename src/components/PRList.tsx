@@ -2,6 +2,8 @@ import { useMemo, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import {
   Pagination,
   PaginationContent,
@@ -28,6 +30,9 @@ export function PRList({ prs, onSelect, selected }: Props) {
 
   const [numberQuery, setNumberQuery] = useState('');
   const [titleQuery, setTitleQuery] = useState('');
+  const [showDrafts, setShowDrafts] = useState(false); // default hide drafts
+  const [showMerged, setShowMerged] = useState(false); // default show open PRs only
+  const [showGreenOnly, setShowGreenOnly] = useState(false); // requires build status; toggle UI only for now
   const [page, setPage] = useState(1);
   const pageSize = 20;
 
@@ -38,9 +43,17 @@ export function PRList({ prs, onSelect, selected }: Props) {
       const matchesNumber = nq ? String(pr.number).includes(nq) : true;
       const title: string = String(pr.title || '');
       const matchesTitle = tq ? title.toLowerCase().includes(tq) : true;
+
+      // filter toggles
+      const hideDrafts = !showDrafts && Boolean(pr.draft);
+      const hideMerged = !showMerged && Boolean(pr.merged_at);
+
+      if (hideDrafts || hideMerged) return false;
+
+      // TODO: green build filter requires commit status data
       return matchesNumber && matchesTitle;
     });
-  }, [items, numberQuery, titleQuery]);
+  }, [items, numberQuery, titleQuery, showDrafts, showMerged]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const currentPage = Math.min(page, totalPages);
@@ -108,6 +121,23 @@ export function PRList({ prs, onSelect, selected }: Props) {
                 }}
                 aria-label="Search by PR title"
               />
+            </div>
+          </div>
+        </div>
+
+        <div className="p-4 md:p-5 border-b">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div className="flex items-center justify-between md:justify-start gap-3">
+              <Switch id="filter-drafts" checked={showDrafts} onCheckedChange={(v) => { setShowDrafts(Boolean(v)); setPage(1); }} />
+              <Label htmlFor="filter-drafts" className="text-sm">Show Draft PRs</Label>
+            </div>
+            <div className="flex items-center justify-between md:justify-start gap-3">
+              <Switch id="filter-merged" checked={showMerged} onCheckedChange={(v) => { setShowMerged(Boolean(v)); setPage(1); }} />
+              <Label htmlFor="filter-merged" className="text-sm">Show Merged PRs</Label>
+            </div>
+            <div className="flex items-center justify-between md:justify-start gap-3">
+              <Switch id="filter-green" checked={showGreenOnly} onCheckedChange={(v) => { setShowGreenOnly(Boolean(v)); setPage(1); }} disabled />
+              <Label htmlFor="filter-green" className="text-sm">Only Show Green Builds</Label>
             </div>
           </div>
         </div>
