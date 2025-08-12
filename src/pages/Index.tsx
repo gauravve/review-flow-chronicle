@@ -77,6 +77,9 @@ const Index = () => {
                 <div className="mt-4">
                   <PRList
                     prs={recentPRs.data!}
+                    owner={repoInfo!.owner}
+                    repo={repoInfo!.repo}
+                    token={repoInfo!.token}
                     onSelect={(n) => {
                       setSelectedNumber(n);
                       setListOpen(false);

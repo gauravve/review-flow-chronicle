@@ -14,15 +14,19 @@ import {
   PaginationPrevious,
 } from '@/components/ui/pagination';
 import { formatDistanceToNow, formatDistanceStrict } from 'date-fns';
-import { Timer } from 'lucide-react';
+import { Timer, CheckCircle2, XCircle, Clock } from 'lucide-react';
+import { useBuildStatuses } from '@/hooks/use-build-status';
 
 type Props = {
   prs: any[];
   onSelect: (number: number) => void;
   selected?: number;
+  owner: string;
+  repo: string;
+  token?: string;
 };
 
-export function PRList({ prs, onSelect, selected }: Props) {
+export function PRList({ prs, onSelect, selected, owner, repo, token }: Props) {
   const items = useMemo(
     () => [...prs].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()),
     [prs]
@@ -61,6 +65,13 @@ export function PRList({ prs, onSelect, selected }: Props) {
     const start = (currentPage - 1) * pageSize;
     return filtered.slice(start, start + pageSize);
   }, [filtered, currentPage]);
+
+  const { statuses: buildStatuses } = useBuildStatuses({ owner, repo, token, prs: pageItems });
+
+  const displayItems = useMemo(() => {
+    if (!showGreenOnly) return pageItems;
+    return pageItems.filter((pr: any) => buildStatuses[pr.number] === 'success');
+  }, [pageItems, showGreenOnly, buildStatuses]);
 
   const goToPage = (p: number) => setPage(Math.max(1, Math.min(totalPages, p)));
 
@@ -136,21 +147,26 @@ export function PRList({ prs, onSelect, selected }: Props) {
               <Label htmlFor="filter-merged" className="text-sm">Show Merged PRs</Label>
             </div>
             <div className="flex items-center justify-between md:justify-start gap-3">
-              <Switch id="filter-green" checked={showGreenOnly} onCheckedChange={(v) => { setShowGreenOnly(Boolean(v)); setPage(1); }} disabled />
+              <Switch id="filter-green" checked={showGreenOnly} onCheckedChange={(v) => { setShowGreenOnly(Boolean(v)); setPage(1); }} />
               <Label htmlFor="filter-green" className="text-sm">Only Show Green Builds</Label>
             </div>
           </div>
         </div>
 
         <ol className="divide-y divide-border">
-          {pageItems.map((pr: any) => {
+          {displayItems.map((pr: any) => {
             const isSelected = selected === pr.number;
             const state = pr.merged_at ? 'merged' : pr.state;
             const metricLabel = pr.merged_at ? 'TTM' : 'Open';
             const metricValue = pr.merged_at
               ? formatDistanceStrict(new Date(pr.created_at), new Date(pr.merged_at))
               : formatDistanceToNow(new Date(pr.created_at));
+            const buildState = buildStatuses[pr.number] as 'success' | 'failure' | 'pending' | undefined;
+            const buildLabel = buildState === 'success' ? 'Passing' : buildState === 'failure' ? 'Failing' : buildState === 'pending' ? 'Pending' : 'Unknown';
+            const buildVariant = buildState === 'success' ? 'secondary' : buildState === 'failure' ? 'destructive' : 'outline';
+            const BuildIcon = buildState === 'success' ? CheckCircle2 : buildState === 'failure' ? XCircle : Clock;
             return (
+
               <li key={pr.id}>
                 <button
                   className={`w-full text-left p-4 md:p-5 hover:bg-secondary/50 transition ${isSelected ? 'bg-secondary/60' : ''}`}
@@ -180,6 +196,15 @@ export function PRList({ prs, onSelect, selected }: Props) {
                         <span className="font-medium">{metricLabel}:</span>
                         <span>{metricValue}</span>
                       </Badge>
+                      <Badge
+                        variant={buildVariant}
+                        className="gap-1 hover-scale shadow-sm"
+                        aria-label={`Build status ${buildLabel}`}
+                      >
+                        <BuildIcon className="h-3.5 w-3.5" aria-hidden="true" />
+                        <span className="font-medium">Build:</span>
+                        <span>{buildLabel}</span>
+                      </Badge>
                       <Badge variant={state === 'open' ? 'default' : state === 'merged' ? 'secondary' : 'outline'} className="capitalize">
                         {state}
                       </Badge>
@@ -189,7 +214,7 @@ export function PRList({ prs, onSelect, selected }: Props) {
               </li>
             );
           })}
-          {pageItems.length === 0 ? (
+          {displayItems.length === 0 ? (
             <li className="p-4 md:p-5 text-sm text-muted-foreground">No pull requests match your filters.</li>
           ) : null}
         </ol>
