@@ -168,15 +168,33 @@ export function PRList({ prs, onSelect, selected, owner, repo, token }: Props) {
             return (
 
               <li key={pr.id}>
-                <button
+                <div
+                  role="button"
+                  tabIndex={0}
                   className={`w-full text-left p-4 md:p-5 hover:bg-secondary/50 transition ${isSelected ? 'bg-secondary/60' : ''}`}
                   onClick={() => onSelect(pr.number)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      onSelect(pr.number);
+                    }
+                  }}
                   aria-label={`Open PR #${pr.number} timeline`}
                 >
                   <div className="flex items-start justify-between gap-4">
                     <div>
                       <div className="font-semibold flex items-center gap-2">
-                        <span>#{pr.number}</span>
+                        <a
+                          href={`https://github.com/${owner}/${repo}/pull/${pr.number}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="underline-offset-2 hover:underline"
+                          aria-label={`Open PR #${pr.number} on GitHub`}
+                          title="Open on GitHub"
+                        >
+                          #{pr.number}
+                        </a>
                         {pr.draft ? (
                           <Badge variant="outline" className="uppercase">Draft</Badge>
                         ) : null}
@@ -210,7 +228,7 @@ export function PRList({ prs, onSelect, selected, owner, repo, token }: Props) {
                       </Badge>
                     </div>
                   </div>
-                </button>
+                </div>
               </li>
             );
           })}
