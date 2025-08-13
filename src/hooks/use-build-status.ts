@@ -23,17 +23,16 @@ async function fetchCombinedStatus(owner: string, repo: string, sha: string, tok
     if (crRes.ok) {
       const crData = await crRes.json();
       const runs = Array.isArray(crData?.check_runs) ? crData.check_runs : [];
-      if (crData?.total_count > 0 && runs.length > 0) {
-        const anyNotCompleted = runs.some((r: any) => r?.status !== 'completed');
-        if (anyNotCompleted) return 'pending';
-        const conclusions = runs.map((r: any) => r?.conclusion).filter(Boolean) as string[];
-        const failingSet = new Set(['failure', 'timed_out', 'cancelled', 'action_required', 'startup_failure']);
-        if (conclusions.some((c) => failingSet.has(c))) return 'failure';
-        // Treat success/neutral/skipped/stale as passing overall
-        const successLike = new Set(['success', 'neutral', 'skipped', 'stale']);
-        if (conclusions.every((c) => successLike.has(c))) return 'success';
-        return 'pending';
-      }
+        if (crData?.total_count > 0 && runs.length > 0) {
+          const conclusions = runs.map((r: any) => r?.conclusion).filter(Boolean) as string[];
+          const failingSet = new Set(['failure', 'timed_out', 'cancelled', 'action_required', 'startup_failure']);
+          if (conclusions.some((c) => failingSet.has(c))) return 'failure';
+          const anyNotCompleted = runs.some((r: any) => r?.status !== 'completed');
+          if (anyNotCompleted) return 'pending';
+          const successLike = new Set(['success', 'neutral', 'skipped', 'stale']);
+          if (conclusions.every((c) => successLike.has(c))) return 'success';
+          return 'pending';
+        }
     }
   } catch {
     // ignore and fallback to legacy statuses
@@ -53,16 +52,22 @@ async function fetchCombinedStatus(owner: string, repo: string, sha: string, tok
 }
 
 export function useBuildStatuses({ owner, repo, token, prs }: Params) {
-  const [statuses, setStatuses] = useState<Record<number, BuildState | undefined>>({});
+  const [cache, setCache] = useState<Record<number, { sha: string; state: BuildState | undefined }>>({});
 
   // Reset cache when repository changes
   useEffect(() => {
-    setStatuses({});
+    setCache({});
   }, [owner, repo]);
 
   const prsToFetch = useMemo(() => {
-    return prs.filter((pr) => statuses[pr.number] === undefined && pr?.head?.sha);
-  }, [prs, statuses]);
+    return prs
+      .map((pr) => ({ number: pr.number, sha: pr.head?.sha as string | undefined }))
+      .filter((p) => Boolean(p.sha))
+      .filter((p) => {
+        const entry = cache[p.number];
+        return !entry || entry.sha !== p.sha;
+      });
+  }, [prs, cache]);
 
   useEffect(() => {
     let cancelled = false;
@@ -70,21 +75,21 @@ export function useBuildStatuses({ owner, repo, token, prs }: Params) {
 
     (async () => {
       const results = await Promise.all(
-        prsToFetch.map(async (pr) => {
-          const sha = pr.head?.sha as string;
+        prsToFetch.map(async (p) => {
+          const sha = p.sha as string;
           try {
             const state = await fetchCombinedStatus(owner, repo, sha, token);
-            return { number: pr.number, state } as { number: number; state: BuildState | undefined };
+            return { number: p.number, sha, state } as { number: number; sha: string; state: BuildState | undefined };
           } catch {
-            return { number: pr.number, state: undefined };
+            return { number: p.number, sha, state: undefined };
           }
         })
       );
       if (cancelled) return;
-      setStatuses((prev) => {
+      setCache((prev) => {
         const next = { ...prev };
         for (const r of results) {
-          next[r.number] = r.state;
+          next[r.number] = { sha: r.sha, state: r.state };
         }
         return next;
       });
@@ -94,6 +99,14 @@ export function useBuildStatuses({ owner, repo, token, prs }: Params) {
       cancelled = true;
     };
   }, [owner, repo, token, prsToFetch]);
+
+  const statuses = useMemo(() => {
+    const out: Record<number, BuildState | undefined> = {};
+    for (const [num, entry] of Object.entries(cache)) {
+      out[Number(num)] = entry.state;
+    }
+    return out;
+  }, [cache]);
 
   return { statuses } as const;
 }
