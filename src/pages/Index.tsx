@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useRef, useState } from 'react';
 import { PRSearch, PRQuery } from '@/components/PRSearch';
 import { ReviewTimeline } from '@/components/ReviewTimeline';
 import { useQuery } from '@tanstack/react-query';
@@ -7,11 +7,13 @@ import { Button } from '@/components/ui/button';
 import { RepoMetrics } from '@/components/RepoMetrics';
 import { PRList } from '@/components/PRList';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { RepoTrends } from '@/components/RepoTrends';
+import { Skeleton } from '@/components/ui/skeleton';
+const LazyRepoTrends = lazy(() => import('@/components/RepoTrends').then(m => ({ default: m.RepoTrends })));
 const Index = () => {
   const [repoInfo, setRepoInfo] = useState<{ owner: string; repo: string; token?: string } | null>(null);
   const [selectedNumber, setSelectedNumber] = useState<number | null>(null);
   const [listOpen, setListOpen] = useState(true);
+  const [showTrends, setShowTrends] = useState(false);
   const heroRef = useRef<HTMLDivElement | null>(null);
 
   const onMouseMove = useCallback((e: React.MouseEvent) => {
@@ -63,7 +65,19 @@ const Index = () => {
         {hasList ? (
           <div className="mt-8 space-y-6">
             <RepoMetrics prs={recentPRs.data!} />
-            <RepoTrends owner={repoInfo!.owner} repo={repoInfo!.repo} token={repoInfo!.token} />
+            {!showTrends ? (
+              <div>
+                <Button variant="outline" size="sm" onClick={() => setShowTrends(true)} aria-controls="repo-trends" aria-expanded={false}>
+                  Show Trends
+                </Button>
+              </div>
+            ) : (
+              <Suspense fallback={<Skeleton className="h-[320px] w-full" />}>
+                <div id="repo-trends" className="animate-reveal-up">
+                  <LazyRepoTrends owner={repoInfo!.owner} repo={repoInfo!.repo} token={repoInfo!.token} />
+                </div>
+              </Suspense>
+            )}
             <Collapsible open={listOpen} onOpenChange={setListOpen}>
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-semibold">Pull Requests (last 8 weeks)</h2>
