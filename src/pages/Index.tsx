@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import { fetchPRTimeline, fetchRecentPRs } from '@/lib/github';
 import { Button } from '@/components/ui/button';
 import { RepoMetrics } from '@/components/RepoMetrics';
+import { BuildMetrics } from '@/components/BuildMetrics';
 import { PRList } from '@/components/PRList';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -65,6 +66,7 @@ const Index = () => {
         {hasList ? (
           <div className="mt-8 space-y-6">
             <RepoMetrics prs={recentPRs.data!} />
+            <BuildMetrics owner={repoInfo!.owner} repo={repoInfo!.repo} token={repoInfo!.token} />
             {!showTrends ? (
               <div>
                 <Button variant="outline" size="sm" onClick={() => setShowTrends(true)} aria-controls="repo-trends" aria-expanded={false}>
