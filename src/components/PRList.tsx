@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Pagination,
   PaginationContent,
@@ -37,6 +38,7 @@ export function PRList({ prs, onSelect, selected, owner, repo, token }: Props) {
   const [showDrafts, setShowDrafts] = useState(false); // default hide drafts
   const [showMerged, setShowMerged] = useState(false); // default show open PRs only
   const [showGreenOnly, setShowGreenOnly] = useState(false); // requires build status; toggle UI only for now
+  const [completedPRs, setCompletedPRs] = useState<Set<number>>(new Set());
   const [page, setPage] = useState(1);
   const pageSize = 20;
 
@@ -74,6 +76,18 @@ export function PRList({ prs, onSelect, selected, owner, repo, token }: Props) {
   }, [pageItems, showGreenOnly, buildStatuses]);
 
   const goToPage = (p: number) => setPage(Math.max(1, Math.min(totalPages, p)));
+
+  const togglePRCompletion = (prNumber: number) => {
+    setCompletedPRs(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(prNumber)) {
+        newSet.delete(prNumber);
+      } else {
+        newSet.add(prNumber);
+      }
+      return newSet;
+    });
+  };
 
   const renderPageNumbers = () => {
     const pages: number[] = [];
@@ -168,11 +182,20 @@ export function PRList({ prs, onSelect, selected, owner, repo, token }: Props) {
             return (
 
               <li key={pr.id}>
-                <div
-                  role="button"
-                  tabIndex={0}
-                  className={`w-full text-left p-4 md:p-5 hover:bg-secondary/50 transition ${isSelected ? 'bg-secondary/60' : ''}`}
-                  onClick={() => onSelect(pr.number)}
+                <div className="flex items-start gap-3 p-4 md:p-5 hover:bg-secondary/50 transition">
+                  <Checkbox 
+                    checked={completedPRs.has(pr.number)}
+                    onCheckedChange={() => togglePRCompletion(pr.number)}
+                    className="mt-1"
+                    aria-label={`Mark PR #${pr.number} as completed`}
+                  />
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    className={`flex-1 cursor-pointer transition-all duration-300 ${isSelected ? 'bg-secondary/60 -mx-3 px-3 py-1 rounded' : ''} ${
+                      completedPRs.has(pr.number) ? 'opacity-60' : ''
+                    }`}
+                    onClick={() => onSelect(pr.number)}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
                       e.preventDefault();
@@ -180,29 +203,33 @@ export function PRList({ prs, onSelect, selected, owner, repo, token }: Props) {
                     }
                   }}
                   aria-label={`Open PR #${pr.number} timeline`}
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <div className="font-semibold flex items-center gap-2">
-                        <a
-                          href={`https://github.com/${owner}/${repo}/pull/${pr.number}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={(e) => e.stopPropagation()}
-                          className="underline-offset-2 hover:underline"
-                          aria-label={`Open PR #${pr.number} on GitHub`}
-                          title="Open on GitHub"
-                        >
-                          #{pr.number}
-                        </a>
-                        {pr.draft ? (
-                          <Badge variant="outline" className="uppercase">Draft</Badge>
-                        ) : null}
-                        <span>• {pr.title}</span>
-                      </div>
-                      <div className="text-sm text-muted-foreground mt-1">
-                        by {pr.user?.login} • {formatDistanceToNow(new Date(pr.created_at), { addSuffix: true })}
-                      </div>
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <div className={`font-semibold flex items-center gap-2 transition-all duration-300 ${
+                          completedPRs.has(pr.number) ? 'line-through' : ''
+                        }`}>
+                          <a
+                            href={`https://github.com/${owner}/${repo}/pull/${pr.number}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="underline-offset-2 hover:underline"
+                            aria-label={`Open PR #${pr.number} on GitHub`}
+                            title="Open on GitHub"
+                          >
+                            #{pr.number}
+                          </a>
+                          {pr.draft ? (
+                            <Badge variant="outline" className="uppercase">Draft</Badge>
+                          ) : null}
+                          <span>• {pr.title}</span>
+                        </div>
+                        <div className={`text-sm text-muted-foreground mt-1 transition-all duration-300 ${
+                          completedPRs.has(pr.number) ? 'line-through' : ''
+                        }`}>
+                          by {pr.user?.login} • {formatDistanceToNow(new Date(pr.created_at), { addSuffix: true })}
+                        </div>
                     </div>
                     <div className="flex items-center gap-2">
                       <Badge
@@ -226,6 +253,7 @@ export function PRList({ prs, onSelect, selected, owner, repo, token }: Props) {
                       <Badge variant={state === 'open' ? 'default' : state === 'merged' ? 'secondary' : 'outline'} className="capitalize">
                         {state}
                       </Badge>
+                    </div>
                     </div>
                   </div>
                 </div>
