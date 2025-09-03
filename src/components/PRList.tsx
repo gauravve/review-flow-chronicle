@@ -16,7 +16,7 @@ import {
   PaginationPrevious,
 } from '@/components/ui/pagination';
 import { formatDistanceToNow, formatDistanceStrict } from 'date-fns';
-import { Timer, CheckCircle2, XCircle, Clock, ListTodo, CheckCheck } from 'lucide-react';
+import { Timer, CheckCircle2, XCircle, Clock, ListTodo, CheckCheck, AlertTriangle } from 'lucide-react';
 import { useBuildStatuses } from '@/hooks/use-build-status';
 
 type Props = {
@@ -40,11 +40,13 @@ export function PRList({ prs, onSelect, selected, owner, repo, token }: Props) {
   const [showMerged, setShowMerged] = useState(false); // default show open PRs only
   const [showGreenOnly, setShowGreenOnly] = useState(false); // requires build status; toggle UI only for now
   const [completedPRs, setCompletedPRs] = useState<Set<number>>(new Set());
+  const [deferredPRs, setDeferredPRs] = useState<Set<number>>(new Set());
   const [page, setPage] = useState(1);
 
   const storageKey = `todo-prs-${owner}-${repo}`;
+  const deferredStorageKey = `deferred-prs-${owner}-${repo}`;
 
-  // Load completed PRs from localStorage on mount
+  // Load completed and deferred PRs from localStorage on mount
   useEffect(() => {
     try {
       const stored = localStorage.getItem(storageKey);
@@ -52,10 +54,16 @@ export function PRList({ prs, onSelect, selected, owner, repo, token }: Props) {
         const completedArray = JSON.parse(stored);
         setCompletedPRs(new Set(completedArray));
       }
+      
+      const deferredStored = localStorage.getItem(deferredStorageKey);
+      if (deferredStored) {
+        const deferredArray = JSON.parse(deferredStored);
+        setDeferredPRs(new Set(deferredArray));
+      }
     } catch (error) {
-      console.warn('Failed to load TODO state from localStorage:', error);
+      console.warn('Failed to load TODO/deferred state from localStorage:', error);
     }
-  }, [storageKey]);
+  }, [storageKey, deferredStorageKey]);
 
   // Save completed PRs to localStorage whenever state changes
   useEffect(() => {
@@ -66,6 +74,16 @@ export function PRList({ prs, onSelect, selected, owner, repo, token }: Props) {
       console.warn('Failed to save TODO state to localStorage:', error);
     }
   }, [completedPRs, storageKey]);
+
+  // Save deferred PRs to localStorage whenever state changes
+  useEffect(() => {
+    try {
+      const deferredArray = Array.from(deferredPRs);
+      localStorage.setItem(deferredStorageKey, JSON.stringify(deferredArray));
+    } catch (error) {
+      console.warn('Failed to save deferred state to localStorage:', error);
+    }
+  }, [deferredPRs, deferredStorageKey]);
   const pageSize = 20;
 
   const filtered = useMemo(() => {
@@ -105,16 +123,18 @@ export function PRList({ prs, onSelect, selected, owner, repo, token }: Props) {
   const todoMetrics = useMemo(() => {
     const totalPRs = filtered.length;
     const completedCount = filtered.filter(pr => completedPRs.has(pr.number)).length;
-    const remainingCount = totalPRs - completedCount;
+    const deferredCount = filtered.filter(pr => deferredPRs.has(pr.number)).length;
+    const remainingCount = totalPRs - completedCount - deferredCount;
     const completionPercentage = totalPRs > 0 ? Math.round((completedCount / totalPRs) * 100) : 0;
     
     return {
       total: totalPRs,
       completed: completedCount,
+      deferred: deferredCount,
       remaining: remainingCount,
       percentage: completionPercentage
     };
-  }, [filtered, completedPRs]);
+  }, [filtered, completedPRs, deferredPRs]);
 
   const goToPage = (p: number) => setPage(Math.max(1, Math.min(totalPages, p)));
 
@@ -125,6 +145,30 @@ export function PRList({ prs, onSelect, selected, owner, repo, token }: Props) {
         newSet.delete(prNumber);
       } else {
         newSet.add(prNumber);
+        // Remove from deferred if adding to completed
+        setDeferredPRs(curr => {
+          const deferredSet = new Set(curr);
+          deferredSet.delete(prNumber);
+          return deferredSet;
+        });
+      }
+      return newSet;
+    });
+  };
+
+  const togglePRDefer = (prNumber: number) => {
+    setDeferredPRs(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(prNumber)) {
+        newSet.delete(prNumber);
+      } else {
+        newSet.add(prNumber);
+        // Remove from completed if adding to deferred
+        setCompletedPRs(curr => {
+          const completedSet = new Set(curr);
+          completedSet.delete(prNumber);
+          return completedSet;
+        });
       }
       return newSet;
     });
@@ -173,7 +217,7 @@ export function PRList({ prs, onSelect, selected, owner, repo, token }: Props) {
               <span className="font-medium">{todoMetrics.percentage}%</span>
             </div>
             <Progress value={todoMetrics.percentage} className="h-2" />
-            <div className="grid grid-cols-3 gap-4 text-center">
+            <div className="grid grid-cols-4 gap-4 text-center">
               <div>
                 <div className="text-lg font-semibold text-primary">{todoMetrics.total}</div>
                 <div className="text-xs text-muted-foreground">Total PRs</div>
@@ -181,6 +225,10 @@ export function PRList({ prs, onSelect, selected, owner, repo, token }: Props) {
               <div>
                 <div className="text-lg font-semibold text-green-600">{todoMetrics.completed}</div>
                 <div className="text-xs text-muted-foreground">Reviewed</div>
+              </div>
+              <div>
+                <div className="text-lg font-semibold text-orange-600">{todoMetrics.deferred}</div>
+                <div className="text-xs text-muted-foreground">Deferred</div>
               </div>
               <div>
                 <div className="text-lg font-semibold text-amber-600">{todoMetrics.remaining}</div>
@@ -258,17 +306,43 @@ export function PRList({ prs, onSelect, selected, owner, repo, token }: Props) {
 
               <li key={pr.id}>
                 <div className="flex items-start gap-3 p-4 md:p-5 hover:bg-secondary/50 transition">
-                  <Checkbox 
-                    checked={completedPRs.has(pr.number)}
-                    onCheckedChange={() => togglePRCompletion(pr.number)}
-                    className="mt-1"
-                    aria-label={`Mark PR #${pr.number} as completed`}
-                  />
+                  <div className="flex flex-col gap-2 mt-1">
+                    <Checkbox 
+                      checked={completedPRs.has(pr.number)}
+                      onCheckedChange={() => togglePRCompletion(pr.number)}
+                      aria-label={`Mark PR #${pr.number} as completed`}
+                    />
+                    <div 
+                      className={`
+                        h-4 w-4 shrink-0 rounded-sm border cursor-pointer transition-colors
+                        ${deferredPRs.has(pr.number) 
+                          ? 'bg-green-600 border-green-600 text-white' 
+                          : 'border-green-600 hover:bg-green-50'
+                        }
+                        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2
+                      `}
+                      onClick={() => togglePRDefer(pr.number)}
+                      role="checkbox"
+                      aria-checked={deferredPRs.has(pr.number)}
+                      aria-label={`Mark PR #${pr.number} as deferred`}
+                      tabIndex={0}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          togglePRDefer(pr.number);
+                        }
+                      }}
+                    >
+                      {deferredPRs.has(pr.number) && (
+                        <AlertTriangle className="h-3 w-3 text-white m-0.5" />
+                      )}
+                    </div>
+                  </div>
                   <div
                     role="button"
                     tabIndex={0}
                     className={`flex-1 cursor-pointer transition-all duration-300 ${isSelected ? 'bg-secondary/60 -mx-3 px-3 py-1 rounded' : ''} ${
-                      completedPRs.has(pr.number) ? 'opacity-60' : ''
+                      completedPRs.has(pr.number) ? 'opacity-60' : deferredPRs.has(pr.number) ? 'opacity-70 bg-orange-50/30' : ''
                     }`}
                     onClick={() => onSelect(pr.number)}
                   onKeyDown={(e) => {
