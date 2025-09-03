@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Progress } from '@/components/ui/progress';
 import {
   Pagination,
   PaginationContent,
@@ -15,7 +16,7 @@ import {
   PaginationPrevious,
 } from '@/components/ui/pagination';
 import { formatDistanceToNow, formatDistanceStrict } from 'date-fns';
-import { Timer, CheckCircle2, XCircle, Clock } from 'lucide-react';
+import { Timer, CheckCircle2, XCircle, Clock, ListTodo, CheckCheck } from 'lucide-react';
 import { useBuildStatuses } from '@/hooks/use-build-status';
 
 type Props = {
@@ -100,6 +101,21 @@ export function PRList({ prs, onSelect, selected, owner, repo, token }: Props) {
     return pageItems.filter((pr: any) => buildStatuses[pr.number] === 'success');
   }, [pageItems, showGreenOnly, buildStatuses]);
 
+  // Calculate TODO metrics based on filtered items (all pages, not just current page)
+  const todoMetrics = useMemo(() => {
+    const totalPRs = filtered.length;
+    const completedCount = filtered.filter(pr => completedPRs.has(pr.number)).length;
+    const remainingCount = totalPRs - completedCount;
+    const completionPercentage = totalPRs > 0 ? Math.round((completedCount / totalPRs) * 100) : 0;
+    
+    return {
+      total: totalPRs,
+      completed: completedCount,
+      remaining: remainingCount,
+      percentage: completionPercentage
+    };
+  }, [filtered, completedPRs]);
+
   const goToPage = (p: number) => setPage(Math.max(1, Math.min(totalPages, p)));
 
   const togglePRCompletion = (prNumber: number) => {
@@ -139,6 +155,40 @@ export function PRList({ prs, onSelect, selected, owner, repo, token }: Props) {
   return (
     <Card className="card-elevated">
       <CardContent className="p-0">
+        {/* TODO Review Metrics */}
+        <div className="p-4 md:p-5 border-b bg-secondary/20">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-semibold flex items-center gap-2">
+              <ListTodo className="h-4 w-4" />
+              Review Progress
+            </h3>
+            <Badge variant={todoMetrics.remaining === 0 ? "default" : "secondary"} className="gap-1">
+              <CheckCheck className="h-3 w-3" />
+              {todoMetrics.completed}/{todoMetrics.total}
+            </Badge>
+          </div>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">Completion</span>
+              <span className="font-medium">{todoMetrics.percentage}%</span>
+            </div>
+            <Progress value={todoMetrics.percentage} className="h-2" />
+            <div className="grid grid-cols-3 gap-4 text-center">
+              <div>
+                <div className="text-lg font-semibold text-primary">{todoMetrics.total}</div>
+                <div className="text-xs text-muted-foreground">Total PRs</div>
+              </div>
+              <div>
+                <div className="text-lg font-semibold text-green-600">{todoMetrics.completed}</div>
+                <div className="text-xs text-muted-foreground">Reviewed</div>
+              </div>
+              <div>
+                <div className="text-lg font-semibold text-amber-600">{todoMetrics.remaining}</div>
+                <div className="text-xs text-muted-foreground">Remaining</div>
+              </div>
+            </div>
+          </div>
+        </div>
         <div className="p-4 md:p-5 border-b">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div>
