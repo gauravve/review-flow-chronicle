@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -40,6 +40,31 @@ export function PRList({ prs, onSelect, selected, owner, repo, token }: Props) {
   const [showGreenOnly, setShowGreenOnly] = useState(false); // requires build status; toggle UI only for now
   const [completedPRs, setCompletedPRs] = useState<Set<number>>(new Set());
   const [page, setPage] = useState(1);
+
+  const storageKey = `todo-prs-${owner}-${repo}`;
+
+  // Load completed PRs from localStorage on mount
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(storageKey);
+      if (stored) {
+        const completedArray = JSON.parse(stored);
+        setCompletedPRs(new Set(completedArray));
+      }
+    } catch (error) {
+      console.warn('Failed to load TODO state from localStorage:', error);
+    }
+  }, [storageKey]);
+
+  // Save completed PRs to localStorage whenever state changes
+  useEffect(() => {
+    try {
+      const completedArray = Array.from(completedPRs);
+      localStorage.setItem(storageKey, JSON.stringify(completedArray));
+    } catch (error) {
+      console.warn('Failed to save TODO state to localStorage:', error);
+    }
+  }, [completedPRs, storageKey]);
   const pageSize = 20;
 
   const filtered = useMemo(() => {
