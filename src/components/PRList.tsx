@@ -38,6 +38,7 @@ export function PRList({ prs, onSelect, selected, owner, repo, token }: Props) {
   const [titleQuery, setTitleQuery] = useState('');
   const [showDrafts, setShowDrafts] = useState(false); // default hide drafts
   const [showMerged, setShowMerged] = useState(false); // default show open PRs only
+  const [showClosed, setShowClosed] = useState(false); // default hide closed PRs
   const [showGreenOnly, setShowGreenOnly] = useState(false); // requires build status; toggle UI only for now
   const [completedPRs, setCompletedPRs] = useState<Set<number>>(new Set());
   const [deferredPRs, setDeferredPRs] = useState<Set<number>>(new Set());
@@ -45,8 +46,9 @@ export function PRList({ prs, onSelect, selected, owner, repo, token }: Props) {
 
   const storageKey = `todo-prs-${owner}-${repo}`;
   const deferredStorageKey = `deferred-prs-${owner}-${repo}`;
+  const showClosedStorageKey = `show-closed-${owner}-${repo}`;
 
-  // Load completed and deferred PRs from localStorage on mount
+  // Load completed, deferred PRs, and showClosed setting from localStorage on mount
   useEffect(() => {
     try {
       const stored = localStorage.getItem(storageKey);
@@ -60,10 +62,15 @@ export function PRList({ prs, onSelect, selected, owner, repo, token }: Props) {
         const deferredArray = JSON.parse(deferredStored);
         setDeferredPRs(new Set(deferredArray));
       }
+
+      const showClosedStored = localStorage.getItem(showClosedStorageKey);
+      if (showClosedStored !== null) {
+        setShowClosed(JSON.parse(showClosedStored));
+      }
     } catch (error) {
-      console.warn('Failed to load TODO/deferred state from localStorage:', error);
+      console.warn('Failed to load TODO/deferred/showClosed state from localStorage:', error);
     }
-  }, [storageKey, deferredStorageKey]);
+  }, [storageKey, deferredStorageKey, showClosedStorageKey]);
 
   // Save completed PRs to localStorage whenever state changes
   useEffect(() => {
@@ -84,6 +91,15 @@ export function PRList({ prs, onSelect, selected, owner, repo, token }: Props) {
       console.warn('Failed to save deferred state to localStorage:', error);
     }
   }, [deferredPRs, deferredStorageKey]);
+
+  // Save showClosed setting to localStorage whenever state changes
+  useEffect(() => {
+    try {
+      localStorage.setItem(showClosedStorageKey, JSON.stringify(showClosed));
+    } catch (error) {
+      console.warn('Failed to save showClosed state to localStorage:', error);
+    }
+  }, [showClosed, showClosedStorageKey]);
   const pageSize = 20;
 
   const filtered = useMemo(() => {
@@ -97,13 +113,14 @@ export function PRList({ prs, onSelect, selected, owner, repo, token }: Props) {
       // filter toggles
       const hideDrafts = !showDrafts && Boolean(pr.draft);
       const hideMerged = !showMerged && Boolean(pr.merged_at);
+      const hideClosed = !showClosed && pr.state === 'closed' && !pr.merged_at;
 
-      if (hideDrafts || hideMerged) return false;
+      if (hideDrafts || hideMerged || hideClosed) return false;
 
       // TODO: green build filter requires commit status data
       return matchesNumber && matchesTitle;
     });
-  }, [items, numberQuery, titleQuery, showDrafts, showMerged]);
+  }, [items, numberQuery, titleQuery, showDrafts, showMerged, showClosed]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const currentPage = Math.min(page, totalPages);
@@ -274,7 +291,7 @@ export function PRList({ prs, onSelect, selected, owner, repo, token }: Props) {
         </div>
 
         <div className="p-4 md:p-5 border-b">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
             <div className="flex items-center justify-between md:justify-start gap-3">
               <Switch id="filter-drafts" checked={showDrafts} onCheckedChange={(v) => { setShowDrafts(Boolean(v)); setPage(1); }} />
               <Label htmlFor="filter-drafts" className="text-sm">Show Draft PRs</Label>
@@ -282,6 +299,10 @@ export function PRList({ prs, onSelect, selected, owner, repo, token }: Props) {
             <div className="flex items-center justify-between md:justify-start gap-3">
               <Switch id="filter-merged" checked={showMerged} onCheckedChange={(v) => { setShowMerged(Boolean(v)); setPage(1); }} />
               <Label htmlFor="filter-merged" className="text-sm">Show Merged PRs</Label>
+            </div>
+            <div className="flex items-center justify-between md:justify-start gap-3">
+              <Switch id="filter-closed" checked={showClosed} onCheckedChange={(v) => { setShowClosed(Boolean(v)); setPage(1); }} />
+              <Label htmlFor="filter-closed" className="text-sm">Show Closed PRs</Label>
             </div>
             <div className="flex items-center justify-between md:justify-start gap-3">
               <Switch id="filter-green" checked={showGreenOnly} onCheckedChange={(v) => { setShowGreenOnly(Boolean(v)); setPage(1); }} />
