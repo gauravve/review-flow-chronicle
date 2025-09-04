@@ -85,6 +85,22 @@ export async function fetchPRTimeline({ owner, repo, number, token }: FetchParam
   return { pr, timeline };
 }
 
+// Fetch repository contributors
+export async function fetchRepositoryContributors({ owner, repo, token }: { owner: string; repo: string; token?: string }) {
+  const base = `https://api.github.com/repos/${owner}/${repo}`;
+  try {
+    const contributors = await gh<any[]>(`${base}/contributors?per_page=100`, token);
+    return contributors.map(contributor => ({
+      login: contributor.login,
+      avatar_url: contributor.avatar_url,
+      contributions: contributor.contributions
+    }));
+  } catch (error) {
+    console.warn('Failed to fetch contributors:', error);
+    return [];
+  }
+}
+
 // Fetch PRs created in the last 14 days (default), sorted newest first
 export async function fetchRecentPRs({ owner, repo, token, days = 14 }: { owner: string; repo: string; token?: string; days?: number }) {
   const base = `https://api.github.com/repos/${owner}/${repo}`;

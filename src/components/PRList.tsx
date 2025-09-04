@@ -6,6 +6,10 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Progress } from '@/components/ui/progress';
+import { Button } from '@/components/ui/button';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   Pagination,
   PaginationContent,
@@ -16,8 +20,9 @@ import {
   PaginationPrevious,
 } from '@/components/ui/pagination';
 import { formatDistanceToNow, formatDistanceStrict } from 'date-fns';
-import { Timer, CheckCircle2, XCircle, Clock, ListTodo, CheckCheck, AlertTriangle } from 'lucide-react';
+import { Timer, CheckCircle2, XCircle, Clock, ListTodo, CheckCheck, AlertTriangle, X } from 'lucide-react';
 import { useBuildStatuses } from '@/hooks/use-build-status';
+import { fetchRepositoryContributors } from '@/lib/github';
 
 type Props = {
   prs: any[];
@@ -42,13 +47,17 @@ export function PRList({ prs, onSelect, selected, owner, repo, token }: Props) {
   const [showGreenOnly, setShowGreenOnly] = useState(false); // requires build status; toggle UI only for now
   const [completedPRs, setCompletedPRs] = useState<Set<number>>(new Set());
   const [deferredPRs, setDeferredPRs] = useState<Set<number>>(new Set());
+  const [assignedContributors, setAssignedContributors] = useState<Map<number, { login: string; avatar_url: string }>>(new Map());
+  const [contributors, setContributors] = useState<any[]>([]);
+  const [openDropdown, setOpenDropdown] = useState<number | null>(null);
   const [page, setPage] = useState(1);
 
   const storageKey = `todo-prs-${owner}-${repo}`;
   const deferredStorageKey = `deferred-prs-${owner}-${repo}`;
+  const assignedStorageKey = `assigned-prs-${owner}-${repo}`;
   const showClosedStorageKey = `show-closed-${owner}-${repo}`;
 
-  // Load completed, deferred PRs, and showClosed setting from localStorage on mount
+  // Load completed, deferred PRs, assigned contributors and showClosed setting from localStorage on mount
   useEffect(() => {
     try {
       const stored = localStorage.getItem(storageKey);
@@ -63,14 +72,33 @@ export function PRList({ prs, onSelect, selected, owner, repo, token }: Props) {
         setDeferredPRs(new Set(deferredArray));
       }
 
+      const assignedStored = localStorage.getItem(assignedStorageKey);
+      if (assignedStored) {
+        const assignedArray = JSON.parse(assignedStored);
+        setAssignedContributors(new Map(assignedArray));
+      }
+
       const showClosedStored = localStorage.getItem(showClosedStorageKey);
       if (showClosedStored !== null) {
         setShowClosed(JSON.parse(showClosedStored));
       }
     } catch (error) {
-      console.warn('Failed to load TODO/deferred/showClosed state from localStorage:', error);
+      console.warn('Failed to load TODO/deferred/assigned/showClosed state from localStorage:', error);
     }
-  }, [storageKey, deferredStorageKey, showClosedStorageKey]);
+  }, [storageKey, deferredStorageKey, assignedStorageKey, showClosedStorageKey]);
+
+  // Fetch contributors on mount
+  useEffect(() => {
+    const loadContributors = async () => {
+      try {
+        const contributorList = await fetchRepositoryContributors({ owner, repo, token });
+        setContributors(contributorList);
+      } catch (error) {
+        console.warn('Failed to fetch contributors:', error);
+      }
+    };
+    loadContributors();
+  }, [owner, repo, token]);
 
   // Save completed PRs to localStorage whenever state changes
   useEffect(() => {
@@ -91,6 +119,16 @@ export function PRList({ prs, onSelect, selected, owner, repo, token }: Props) {
       console.warn('Failed to save deferred state to localStorage:', error);
     }
   }, [deferredPRs, deferredStorageKey]);
+
+  // Save assigned contributors to localStorage whenever state changes
+  useEffect(() => {
+    try {
+      const assignedArray = Array.from(assignedContributors.entries());
+      localStorage.setItem(assignedStorageKey, JSON.stringify(assignedArray));
+    } catch (error) {
+      console.warn('Failed to save assigned state to localStorage:', error);
+    }
+  }, [assignedContributors, assignedStorageKey]);
 
   // Save showClosed setting to localStorage whenever state changes
   useEffect(() => {
@@ -154,6 +192,31 @@ export function PRList({ prs, onSelect, selected, owner, repo, token }: Props) {
   }, [filtered, completedPRs, deferredPRs]);
 
   const goToPage = (p: number) => setPage(Math.max(1, Math.min(totalPages, p)));
+
+  const assignContributor = (prNumber: number, contributor: { login: string; avatar_url: string }) => {
+    setAssignedContributors(prev => new Map(prev.set(prNumber, contributor)));
+    setDeferredPRs(prev => new Set(prev.add(prNumber)));
+    // Remove from completed if assigning
+    setCompletedPRs(prev => {
+      const newSet = new Set(prev);
+      newSet.delete(prNumber);
+      return newSet;
+    });
+    setOpenDropdown(null);
+  };
+
+  const removeAssignedContributor = (prNumber: number) => {
+    setAssignedContributors(prev => {
+      const newMap = new Map(prev);
+      newMap.delete(prNumber);
+      return newMap;
+    });
+    setDeferredPRs(prev => {
+      const newSet = new Set(prev);
+      newSet.delete(prNumber);
+      return newSet;
+    });
+  };
 
   const togglePRCompletion = (prNumber: number) => {
     setCompletedPRs(prev => {
@@ -333,31 +396,54 @@ export function PRList({ prs, onSelect, selected, owner, repo, token }: Props) {
                       onCheckedChange={() => togglePRCompletion(pr.number)}
                       aria-label={`Mark PR #${pr.number} as completed`}
                     />
-                    <div 
-                      className={`
-                        h-4 w-4 shrink-0 rounded-sm border cursor-pointer transition-colors
-                        ${deferredPRs.has(pr.number) 
-                          ? 'bg-green-600 border-green-600 text-white' 
-                          : 'border-green-600 hover:bg-green-50'
-                        }
-                        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2
-                      `}
-                      onClick={() => togglePRDefer(pr.number)}
-                      role="checkbox"
-                      aria-checked={deferredPRs.has(pr.number)}
-                      aria-label={`Mark PR #${pr.number} as deferred`}
-                      tabIndex={0}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault();
-                          togglePRDefer(pr.number);
-                        }
-                      }}
-                    >
-                      {deferredPRs.has(pr.number) && (
-                        <AlertTriangle className="h-3 w-3 text-white m-0.5" />
-                      )}
-                    </div>
+                    <Popover open={openDropdown === pr.number} onOpenChange={(open) => setOpenDropdown(open ? pr.number : null)}>
+                      <PopoverTrigger asChild>
+                        <div 
+                          className={`
+                            h-4 w-4 shrink-0 rounded-sm border cursor-pointer transition-colors
+                            ${deferredPRs.has(pr.number) 
+                              ? 'bg-green-600 border-green-600 text-white' 
+                              : 'border-green-600 hover:bg-green-50'
+                            }
+                            focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2
+                          `}
+                          role="button"
+                          aria-label={`Assign PR #${pr.number} to contributor`}
+                          tabIndex={0}
+                        >
+                          {deferredPRs.has(pr.number) && (
+                            <AlertTriangle className="h-3 w-3 text-white m-0.5" />
+                          )}
+                        </div>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-80 p-0" side="right" align="start">
+                        <Command>
+                          <CommandInput placeholder="Search contributors..." className="h-9" />
+                          <CommandList>
+                            <CommandEmpty>No contributors found.</CommandEmpty>
+                            <CommandGroup>
+                              {contributors.map((contributor) => (
+                                <CommandItem
+                                  key={contributor.login}
+                                  value={contributor.login}
+                                  onSelect={() => assignContributor(pr.number, contributor)}
+                                  className="flex items-center gap-2"
+                                >
+                                  <Avatar className="h-6 w-6">
+                                    <AvatarImage src={contributor.avatar_url} alt={contributor.login} />
+                                    <AvatarFallback>{contributor.login.slice(0, 2).toUpperCase()}</AvatarFallback>
+                                  </Avatar>
+                                  <span>{contributor.login}</span>
+                                  <span className="text-xs text-muted-foreground ml-auto">
+                                    {contributor.contributions} contributions
+                                  </span>
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
                   </div>
                   <div
                     role="button"
@@ -400,6 +486,28 @@ export function PRList({ prs, onSelect, selected, owner, repo, token }: Props) {
                         }`}>
                           by {pr.user?.login} • {formatDistanceToNow(new Date(pr.created_at), { addSuffix: true })}
                         </div>
+                        {assignedContributors.has(pr.number) && (
+                          <div className="flex items-center gap-2 mt-2">
+                            <Badge variant="secondary" className="flex items-center gap-2">
+                              <Avatar className="h-4 w-4">
+                                <AvatarImage src={assignedContributors.get(pr.number)?.avatar_url} alt={assignedContributors.get(pr.number)?.login} />
+                                <AvatarFallback>{assignedContributors.get(pr.number)?.login.slice(0, 2).toUpperCase()}</AvatarFallback>
+                              </Avatar>
+                              <span className="text-xs">Assigned to {assignedContributors.get(pr.number)?.login}</span>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-4 w-4 p-0"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  removeAssignedContributor(pr.number);
+                                }}
+                              >
+                                <X className="h-3 w-3" />
+                              </Button>
+                            </Badge>
+                          </div>
+                        )}
                     </div>
                     <div className="flex items-center gap-2">
                       <Badge
