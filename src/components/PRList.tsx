@@ -50,6 +50,7 @@ export function PRList({ prs, onSelect, selected, owner, repo, token }: Props) {
   const [assignedContributors, setAssignedContributors] = useState<Map<number, { login: string; avatar_url: string }>>(new Map());
   const [contributors, setContributors] = useState<any[]>([]);
   const [openDropdown, setOpenDropdown] = useState<number | null>(null);
+  const [selectedLabels, setSelectedLabels] = useState<Set<string>>(new Set());
   const [page, setPage] = useState(1);
 
   const storageKey = `todo-prs-${owner}-${repo}`;
@@ -140,6 +141,17 @@ export function PRList({ prs, onSelect, selected, owner, repo, token }: Props) {
   }, [showClosed, showClosedStorageKey]);
   const pageSize = 20;
 
+  // Extract all unique labels from PRs
+  const allLabels = useMemo(() => {
+    const labelSet = new Set<string>();
+    items.forEach((pr: any) => {
+      if (pr.labels && Array.isArray(pr.labels)) {
+        pr.labels.forEach((label: any) => labelSet.add(label.name));
+      }
+    });
+    return Array.from(labelSet).sort();
+  }, [items]);
+
   const filtered = useMemo(() => {
     const nq = numberQuery.trim();
     const tq = titleQuery.trim().toLowerCase();
@@ -147,6 +159,10 @@ export function PRList({ prs, onSelect, selected, owner, repo, token }: Props) {
       const matchesNumber = nq ? String(pr.number).includes(nq) : true;
       const title: string = String(pr.title || '');
       const matchesTitle = tq ? title.toLowerCase().includes(tq) : true;
+
+      // Label filtering
+      const matchesLabels = selectedLabels.size === 0 || 
+        (pr.labels && pr.labels.some((label: any) => selectedLabels.has(label.name)));
 
       // filter toggles
       const hideDrafts = !showDrafts && Boolean(pr.draft);
@@ -156,9 +172,9 @@ export function PRList({ prs, onSelect, selected, owner, repo, token }: Props) {
       if (hideDrafts || hideMerged || hideClosed) return false;
 
       // TODO: green build filter requires commit status data
-      return matchesNumber && matchesTitle;
+      return matchesNumber && matchesTitle && matchesLabels;
     });
-  }, [items, numberQuery, titleQuery, showDrafts, showMerged, showClosed]);
+  }, [items, numberQuery, titleQuery, showDrafts, showMerged, showClosed, selectedLabels]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const currentPage = Math.min(page, totalPages);
@@ -216,6 +232,50 @@ export function PRList({ prs, onSelect, selected, owner, repo, token }: Props) {
       newSet.delete(prNumber);
       return newSet;
     });
+  };
+
+  const toggleLabelFilter = (labelName: string) => {
+    setSelectedLabels(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(labelName)) {
+        newSet.delete(labelName);
+      } else {
+        newSet.add(labelName);
+      }
+      return newSet;
+    });
+    setPage(1);
+  };
+
+  const clearLabelFilters = () => {
+    setSelectedLabels(new Set());
+    setPage(1);
+  };
+
+  // Function to generate a consistent color for labels
+  const getLabelColor = (labelName: string) => {
+    const colors = [
+      'bg-red-100 text-red-800 border-red-200',
+      'bg-blue-100 text-blue-800 border-blue-200',
+      'bg-green-100 text-green-800 border-green-200',
+      'bg-yellow-100 text-yellow-800 border-yellow-200',
+      'bg-purple-100 text-purple-800 border-purple-200',
+      'bg-pink-100 text-pink-800 border-pink-200',
+      'bg-indigo-100 text-indigo-800 border-indigo-200',
+      'bg-orange-100 text-orange-800 border-orange-200',
+      'bg-teal-100 text-teal-800 border-teal-200',
+      'bg-cyan-100 text-cyan-800 border-cyan-200',
+    ];
+    
+    // Simple hash function to get consistent color for same label
+    let hash = 0;
+    for (let i = 0; i < labelName.length; i++) {
+      const char = labelName.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32bit integer
+    }
+    
+    return colors[Math.abs(hash) % colors.length];
   };
 
   const togglePRCompletion = (prNumber: number) => {
@@ -352,6 +412,42 @@ export function PRList({ prs, onSelect, selected, owner, repo, token }: Props) {
             </div>
           </div>
         </div>
+
+        {/* Label Filters */}
+        {allLabels.length > 0 && (
+          <div className="p-4 md:p-5 border-b bg-secondary/10">
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="text-sm font-medium">Filter by Labels</h4>
+              {selectedLabels.size > 0 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={clearLabelFilters}
+                  className="text-xs h-6 px-2"
+                >
+                  Clear ({selectedLabels.size})
+                </Button>
+              )}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {allLabels.map((label) => {
+                const isSelected = selectedLabels.has(label);
+                return (
+                  <Badge
+                    key={label}
+                    variant={isSelected ? "default" : "secondary"}
+                    className={`cursor-pointer transition-all hover:scale-105 ${
+                      isSelected ? '' : getLabelColor(label)
+                    }`}
+                    onClick={() => toggleLabelFilter(label)}
+                  >
+                    {label}
+                  </Badge>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         <div className="p-4 md:p-5 border-b">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
@@ -506,6 +602,22 @@ export function PRList({ prs, onSelect, selected, owner, repo, token }: Props) {
                                 <X className="h-3 w-3" />
                               </Button>
                             </Badge>
+                          </div>
+                        )}
+                        {pr.labels && pr.labels.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-2">
+                            {pr.labels.map((label: any) => (
+                              <Badge
+                                key={label.id}
+                                className={`text-xs px-2 py-0 cursor-pointer transition-all hover:scale-105 ${getLabelColor(label.name)}`}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleLabelFilter(label.name);
+                                }}
+                              >
+                                {label.name}
+                              </Badge>
+                            ))}
                           </div>
                         )}
                     </div>
