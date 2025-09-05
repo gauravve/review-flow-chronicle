@@ -132,6 +132,64 @@ export async function fetchRecentPRs({ owner, repo, token, days = 14 }: { owner:
   return results;
 }
 
+// Assign a PR to a user on GitHub
+export async function assignPRToUser({ owner, repo, number, assignee, token }: FetchParams & { assignee: string }) {
+  const base = `https://api.github.com/repos/${owner}/${repo}`;
+  
+  try {
+    const response = await fetch(`${base}/issues/${number}/assignees`, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/vnd.github+json',
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({
+        assignees: [assignee]
+      })
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`GitHub API error ${response.status}: ${errorText}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error(`Failed to assign PR #${number} to ${assignee}:`, error);
+    throw error;
+  }
+}
+
+// Unassign a PR from a user on GitHub
+export async function unassignPRFromUser({ owner, repo, number, assignee, token }: FetchParams & { assignee: string }) {
+  const base = `https://api.github.com/repos/${owner}/${repo}`;
+  
+  try {
+    const response = await fetch(`${base}/issues/${number}/assignees`, {
+      method: 'DELETE',
+      headers: {
+        Accept: 'application/vnd.github+json',
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({
+        assignees: [assignee]
+      })
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`GitHub API error ${response.status}: ${errorText}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error(`Failed to unassign PR #${number} from ${assignee}:`, error);
+    throw error;
+  }
+}
+
 // Fetch approval status for a PR
 export async function fetchPRApprovalStatus({ owner, repo, number, token }: FetchParams) {
   const base = `https://api.github.com/repos/${owner}/${repo}`;

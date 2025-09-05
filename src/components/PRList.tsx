@@ -22,7 +22,7 @@ import {
 import { formatDistanceToNow, formatDistanceStrict } from 'date-fns';
 import { Timer, CheckCircle2, XCircle, Clock, ListTodo, CheckCheck, AlertTriangle, X, UserCheck, Users } from 'lucide-react';
 import { useBuildStatuses } from '@/hooks/use-build-status';
-import { fetchRepositoryContributors, fetchPRApprovalStatus } from '@/lib/github';
+import { fetchRepositoryContributors, fetchPRApprovalStatus, assignPRToUser, unassignPRFromUser } from '@/lib/github';
 
 type Props = {
   prs: any[];
@@ -239,29 +239,71 @@ export function PRList({ prs, onSelect, selected, owner, repo, token }: Props) {
 
   const goToPage = (p: number) => setPage(Math.max(1, Math.min(totalPages, p)));
 
-  const assignContributor = (prNumber: number, contributor: { login: string; avatar_url: string }) => {
-    setAssignedContributors(prev => new Map(prev.set(prNumber, contributor)));
-    setDeferredPRs(prev => new Set(prev.add(prNumber)));
-    // Remove from completed if assigning
-    setCompletedPRs(prev => {
-      const newSet = new Set(prev);
-      newSet.delete(prNumber);
-      return newSet;
-    });
-    setOpenDropdown(null);
+  const assignContributor = async (prNumber: number, contributor: { login: string; avatar_url: string }) => {
+    try {
+      // Assign on GitHub first
+      if (token) {
+        await assignPRToUser({ owner, repo, number: prNumber, assignee: contributor.login, token });
+      }
+      
+      // Update local state
+      setAssignedContributors(prev => new Map(prev.set(prNumber, contributor)));
+      setDeferredPRs(prev => new Set(prev.add(prNumber)));
+      // Remove from completed if assigning
+      setCompletedPRs(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(prNumber);
+        return newSet;
+      });
+      setOpenDropdown(null);
+    } catch (error) {
+      console.error('Failed to assign PR on GitHub:', error);
+      // Still update local state even if GitHub API fails
+      setAssignedContributors(prev => new Map(prev.set(prNumber, contributor)));
+      setDeferredPRs(prev => new Set(prev.add(prNumber)));
+      setCompletedPRs(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(prNumber);
+        return newSet;
+      });
+      setOpenDropdown(null);
+    }
   };
 
-  const removeAssignedContributor = (prNumber: number) => {
-    setAssignedContributors(prev => {
-      const newMap = new Map(prev);
-      newMap.delete(prNumber);
-      return newMap;
-    });
-    setDeferredPRs(prev => {
-      const newSet = new Set(prev);
-      newSet.delete(prNumber);
-      return newSet;
-    });
+  const removeAssignedContributor = async (prNumber: number) => {
+    const assignedContributor = assignedContributors.get(prNumber);
+    
+    try {
+      // Unassign on GitHub first
+      if (token && assignedContributor) {
+        await unassignPRFromUser({ owner, repo, number: prNumber, assignee: assignedContributor.login, token });
+      }
+      
+      // Update local state
+      setAssignedContributors(prev => {
+        const newMap = new Map(prev);
+        newMap.delete(prNumber);
+        return newMap;
+      });
+      setDeferredPRs(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(prNumber);
+        return newSet;
+      });
+    } catch (error) {
+      console.error('Failed to unassign PR on GitHub:', error);
+      // Still update local state even if GitHub API fails
+      setAssignedContributors(prev => {
+        const newMap = new Map(prev);
+        newMap.delete(prNumber);
+        return newMap;
+      });
+      setDeferredPRs(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(prNumber);
+        return newSet;
+      });
+    }
   };
 
   const toggleLabelFilter = (labelName: string) => {
