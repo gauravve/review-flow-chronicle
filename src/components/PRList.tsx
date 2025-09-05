@@ -195,12 +195,15 @@ export function PRList({ prs, onSelect, selected, owner, repo, token }: Props) {
   // Fetch approval statuses for current page items
   useEffect(() => {
     const loadApprovalStatuses = async () => {
+      console.log('Loading approval statuses for PRs:', pageItems.map(pr => pr.number));
       const newStatuses = new Map(approvalStatuses);
       
       for (const pr of pageItems) {
         if (!newStatuses.has(pr.number)) {
           try {
+            console.log(`Fetching approval status for PR #${pr.number}`);
             const status = await fetchPRApprovalStatus({ owner, repo, number: pr.number, token });
+            console.log(`Approval status for PR #${pr.number}:`, status);
             newStatuses.set(pr.number, status);
           } catch (error) {
             console.warn(`Failed to fetch approval status for PR #${pr.number}:`, error);
@@ -208,10 +211,11 @@ export function PRList({ prs, onSelect, selected, owner, repo, token }: Props) {
         }
       }
       
+      console.log('Final approval statuses:', Object.fromEntries(newStatuses));
       setApprovalStatuses(newStatuses);
     };
 
-    if (pageItems.length > 0) {
+    if (pageItems.length > 0 && token) {
       loadApprovalStatuses();
     }
   }, [pageItems, owner, repo, token]);
@@ -669,34 +673,48 @@ export function PRList({ prs, onSelect, selected, owner, repo, token }: Props) {
                        <Badge variant={state === 'open' ? 'default' : state === 'merged' ? 'secondary' : 'outline'} className="capitalize">
                          {state}
                        </Badge>
-                       {(() => {
-                         const approvalStatus = approvalStatuses.get(pr.number);
-                         if (!approvalStatus) return null;
-                         
-                         const { approvals, changesRequested, isApproved } = approvalStatus;
-                         
-                         if (changesRequested.length > 0) {
-                           return (
-                             <Badge variant="destructive" className="gap-1 hover-scale shadow-sm">
-                               <XCircle className="h-3.5 w-3.5" />
-                               <span className="font-medium">Changes Requested</span>
-                             </Badge>
-                           );
-                         }
-                         
-                         if (isApproved) {
-                           return (
-                             <Badge variant="default" className="gap-1 hover-scale shadow-sm bg-green-600 hover:bg-green-700">
-                               <UserCheck className="h-3.5 w-3.5" />
-                               <span className="font-medium">
-                                 Approved by {approvals.map(a => a.login).join(', ')}
-                               </span>
-                             </Badge>
-                           );
-                         }
-                         
-                         return null;
-                       })()}
+                        {(() => {
+                          const approvalStatus = approvalStatuses.get(pr.number);
+                          console.log(`Approval status for PR #${pr.number}:`, approvalStatus);
+                          
+                          if (!approvalStatus) {
+                            return (
+                              <Badge variant="outline" className="gap-1">
+                                <Clock className="h-3.5 w-3.5" />
+                                <span className="font-medium">No Reviews</span>
+                              </Badge>
+                            );
+                          }
+                          
+                          const { approvals, changesRequested, isApproved } = approvalStatus;
+                          
+                          if (changesRequested.length > 0) {
+                            return (
+                              <Badge variant="destructive" className="gap-1 hover-scale shadow-sm">
+                                <XCircle className="h-3.5 w-3.5" />
+                                <span className="font-medium">Changes Requested</span>
+                              </Badge>
+                            );
+                          }
+                          
+                          if (isApproved && approvals.length > 0) {
+                            return (
+                              <Badge variant="default" className="gap-1 hover-scale shadow-sm bg-green-600 hover:bg-green-700">
+                                <UserCheck className="h-3.5 w-3.5" />
+                                <span className="font-medium">
+                                  Approved by {approvals.map(a => a.login).join(', ')}
+                                </span>
+                              </Badge>
+                            );
+                          }
+                          
+                          return (
+                            <Badge variant="outline" className="gap-1">
+                              <Clock className="h-3.5 w-3.5" />
+                              <span className="font-medium">Pending Review</span>
+                            </Badge>
+                          );
+                        })()}
                      </div>
                     </div>
                   </div>
