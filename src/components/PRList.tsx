@@ -20,9 +20,9 @@ import {
   PaginationPrevious,
 } from '@/components/ui/pagination';
 import { formatDistanceToNow, formatDistanceStrict } from 'date-fns';
-import { Timer, CheckCircle2, XCircle, Clock, ListTodo, CheckCheck, AlertTriangle, X } from 'lucide-react';
+import { Timer, CheckCircle2, XCircle, Clock, ListTodo, CheckCheck, AlertTriangle, X, UserCheck, Users } from 'lucide-react';
 import { useBuildStatuses } from '@/hooks/use-build-status';
-import { fetchRepositoryContributors } from '@/lib/github';
+import { fetchRepositoryContributors, fetchPRApprovalStatus } from '@/lib/github';
 
 type Props = {
   prs: any[];
@@ -51,6 +51,7 @@ export function PRList({ prs, onSelect, selected, owner, repo, token }: Props) {
   const [contributors, setContributors] = useState<any[]>([]);
   const [openDropdown, setOpenDropdown] = useState<number | null>(null);
   const [selectedLabels, setSelectedLabels] = useState<Set<string>>(new Set());
+  const [approvalStatuses, setApprovalStatuses] = useState<Map<number, any>>(new Map());
   const [page, setPage] = useState(1);
 
   const storageKey = `todo-prs-${owner}-${repo}`;
@@ -139,6 +140,7 @@ export function PRList({ prs, onSelect, selected, owner, repo, token }: Props) {
       console.warn('Failed to save showClosed state to localStorage:', error);
     }
   }, [showClosed, showClosedStorageKey]);
+
   const pageSize = 20;
 
   // Extract all unique labels from PRs
@@ -189,6 +191,30 @@ export function PRList({ prs, onSelect, selected, owner, repo, token }: Props) {
     if (!showGreenOnly) return pageItems;
     return pageItems.filter((pr: any) => buildStatuses[pr.number] === 'success');
   }, [pageItems, showGreenOnly, buildStatuses]);
+
+  // Fetch approval statuses for current page items
+  useEffect(() => {
+    const loadApprovalStatuses = async () => {
+      const newStatuses = new Map(approvalStatuses);
+      
+      for (const pr of pageItems) {
+        if (!newStatuses.has(pr.number)) {
+          try {
+            const status = await fetchPRApprovalStatus({ owner, repo, number: pr.number, token });
+            newStatuses.set(pr.number, status);
+          } catch (error) {
+            console.warn(`Failed to fetch approval status for PR #${pr.number}:`, error);
+          }
+        }
+      }
+      
+      setApprovalStatuses(newStatuses);
+    };
+
+    if (pageItems.length > 0) {
+      loadApprovalStatuses();
+    }
+  }, [pageItems, owner, repo, token]);
 
   // Calculate TODO metrics based on filtered items (all pages, not just current page)
   const todoMetrics = useMemo(() => {
@@ -621,29 +647,57 @@ export function PRList({ prs, onSelect, selected, owner, repo, token }: Props) {
                           </div>
                         )}
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Badge
-                        variant="secondary"
-                        className="gap-1 hover-scale shadow-sm"
-                        aria-label={`${pr.merged_at ? 'Time to merge' : 'Time open'} ${metricValue}`}
-                      >
-                        <Timer className="h-3.5 w-3.5" aria-hidden="true" />
-                        <span className="font-medium">{metricLabel}:</span>
-                        <span>{metricValue}</span>
-                      </Badge>
-                      <Badge
-                        variant={buildVariant}
-                        className="gap-1 hover-scale shadow-sm"
-                        aria-label={`Build status ${buildLabel}`}
-                      >
-                        <BuildIcon className="h-3.5 w-3.5" aria-hidden="true" />
-                        <span className="font-medium">Build:</span>
-                        <span>{buildLabel}</span>
-                      </Badge>
-                      <Badge variant={state === 'open' ? 'default' : state === 'merged' ? 'secondary' : 'outline'} className="capitalize">
-                        {state}
-                      </Badge>
-                    </div>
+                     <div className="flex items-center gap-2">
+                       <Badge
+                         variant="secondary"
+                         className="gap-1 hover-scale shadow-sm"
+                         aria-label={`${pr.merged_at ? 'Time to merge' : 'Time open'} ${metricValue}`}
+                       >
+                         <Timer className="h-3.5 w-3.5" aria-hidden="true" />
+                         <span className="font-medium">{metricLabel}:</span>
+                         <span>{metricValue}</span>
+                       </Badge>
+                       <Badge
+                         variant={buildVariant}
+                         className="gap-1 hover-scale shadow-sm"
+                         aria-label={`Build status ${buildLabel}`}
+                       >
+                         <BuildIcon className="h-3.5 w-3.5" aria-hidden="true" />
+                         <span className="font-medium">Build:</span>
+                         <span>{buildLabel}</span>
+                       </Badge>
+                       <Badge variant={state === 'open' ? 'default' : state === 'merged' ? 'secondary' : 'outline'} className="capitalize">
+                         {state}
+                       </Badge>
+                       {(() => {
+                         const approvalStatus = approvalStatuses.get(pr.number);
+                         if (!approvalStatus) return null;
+                         
+                         const { approvals, changesRequested, isApproved } = approvalStatus;
+                         
+                         if (changesRequested.length > 0) {
+                           return (
+                             <Badge variant="destructive" className="gap-1 hover-scale shadow-sm">
+                               <XCircle className="h-3.5 w-3.5" />
+                               <span className="font-medium">Changes Requested</span>
+                             </Badge>
+                           );
+                         }
+                         
+                         if (isApproved) {
+                           return (
+                             <Badge variant="default" className="gap-1 hover-scale shadow-sm bg-green-600 hover:bg-green-700">
+                               <UserCheck className="h-3.5 w-3.5" />
+                               <span className="font-medium">
+                                 Approved by {approvals.map(a => a.login).join(', ')}
+                               </span>
+                             </Badge>
+                           );
+                         }
+                         
+                         return null;
+                       })()}
+                     </div>
                     </div>
                   </div>
                 </div>

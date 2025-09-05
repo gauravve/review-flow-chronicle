@@ -131,3 +131,47 @@ export async function fetchRecentPRs({ owner, repo, token, days = 14 }: { owner:
   results.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
   return results;
 }
+
+// Fetch approval status for a PR
+export async function fetchPRApprovalStatus({ owner, repo, number, token }: FetchParams) {
+  const base = `https://api.github.com/repos/${owner}/${repo}`;
+  
+  try {
+    const reviews = await gh<any[]>(`${base}/pulls/${number}/reviews`, token);
+    
+    // Get the latest review from each reviewer
+    const reviewerLatestReviews = new Map();
+    reviews
+      .sort((a, b) => new Date(a.submitted_at || a.created_at).getTime() - new Date(b.submitted_at || b.created_at).getTime())
+      .forEach(review => {
+        if (review.user?.login && review.state !== 'COMMENTED') {
+          reviewerLatestReviews.set(review.user.login, review);
+        }
+      });
+
+    const latestReviews = Array.from(reviewerLatestReviews.values());
+    const approvals = latestReviews.filter(review => review.state === 'APPROVED');
+    const changesRequested = latestReviews.filter(review => review.state === 'CHANGES_REQUESTED');
+
+    return {
+      approvals: approvals.map(review => ({
+        login: review.user.login,
+        avatar_url: review.user.avatar_url,
+        submitted_at: review.submitted_at || review.created_at
+      })),
+      changesRequested: changesRequested.map(review => ({
+        login: review.user.login,
+        avatar_url: review.user.avatar_url,
+        submitted_at: review.submitted_at || review.created_at
+      })),
+      isApproved: approvals.length > 0 && changesRequested.length === 0
+    };
+  } catch (error) {
+    console.warn(`Failed to fetch approval status for PR #${number}:`, error);
+    return {
+      approvals: [],
+      changesRequested: [],
+      isApproved: false
+    };
+  }
+}
