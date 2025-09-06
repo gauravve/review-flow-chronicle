@@ -20,7 +20,7 @@ import {
   PaginationPrevious,
 } from '@/components/ui/pagination';
 import { formatDistanceToNow, formatDistanceStrict } from 'date-fns';
-import { Timer, CheckCircle2, XCircle, Clock, ListTodo, CheckCheck, AlertTriangle, X, UserCheck, Users } from 'lucide-react';
+import { Timer, CheckCircle2, XCircle, Clock, ListTodo, CheckCheck, AlertTriangle, X, UserCheck, Users, Star } from 'lucide-react';
 import { useBuildStatuses } from '@/hooks/use-build-status';
 import { fetchRepositoryContributors, fetchPRApprovalStatus, assignPRToUser, unassignPRFromUser } from '@/lib/github';
 
@@ -34,11 +34,6 @@ type Props = {
 };
 
 export function PRList({ prs, onSelect, selected, owner, repo, token }: Props) {
-  const items = useMemo(
-    () => [...prs].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()),
-    [prs]
-  );
-
   const [numberQuery, setNumberQuery] = useState('');
   const [titleQuery, setTitleQuery] = useState('');
   const [showDrafts, setShowDrafts] = useState(false); // default hide drafts
@@ -47,6 +42,7 @@ export function PRList({ prs, onSelect, selected, owner, repo, token }: Props) {
   const [showGreenOnly, setShowGreenOnly] = useState(false); // requires build status; toggle UI only for now
   const [completedPRs, setCompletedPRs] = useState<Set<number>>(new Set());
   const [deferredPRs, setDeferredPRs] = useState<Set<number>>(new Set());
+  const [importantPRs, setImportantPRs] = useState<Set<number>>(new Set());
   const [assignedContributors, setAssignedContributors] = useState<Map<number, { login: string; avatar_url: string }>>(new Map());
   const [contributors, setContributors] = useState<any[]>([]);
   const [openDropdown, setOpenDropdown] = useState<number | null>(null);
@@ -54,8 +50,23 @@ export function PRList({ prs, onSelect, selected, owner, repo, token }: Props) {
   const [approvalStatuses, setApprovalStatuses] = useState<Map<number, any>>(new Map());
   const [page, setPage] = useState(1);
 
+  const items = useMemo(
+    () => [...prs].sort((a, b) => {
+      // Important PRs always go to the top
+      const aImportant = importantPRs.has(a.number);
+      const bImportant = importantPRs.has(b.number);
+      if (aImportant && !bImportant) return -1;
+      if (!aImportant && bImportant) return 1;
+      
+      // Then sort by creation date
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    }),
+    [prs, importantPRs]
+  );
+
   const storageKey = `todo-prs-${owner}-${repo}`;
   const deferredStorageKey = `deferred-prs-${owner}-${repo}`;
+  const importantStorageKey = `important-prs-${owner}-${repo}`;
   const assignedStorageKey = `assigned-prs-${owner}-${repo}`;
   const showClosedStorageKey = `show-closed-${owner}-${repo}`;
 
@@ -74,6 +85,12 @@ export function PRList({ prs, onSelect, selected, owner, repo, token }: Props) {
         setDeferredPRs(new Set(deferredArray));
       }
 
+      const importantStored = localStorage.getItem(importantStorageKey);
+      if (importantStored) {
+        const importantArray = JSON.parse(importantStored);
+        setImportantPRs(new Set(importantArray));
+      }
+
       const assignedStored = localStorage.getItem(assignedStorageKey);
       if (assignedStored) {
         const assignedArray = JSON.parse(assignedStored);
@@ -85,9 +102,9 @@ export function PRList({ prs, onSelect, selected, owner, repo, token }: Props) {
         setShowClosed(JSON.parse(showClosedStored));
       }
     } catch (error) {
-      console.warn('Failed to load TODO/deferred/assigned/showClosed state from localStorage:', error);
+      console.warn('Failed to load TODO/deferred/important/assigned/showClosed state from localStorage:', error);
     }
-  }, [storageKey, deferredStorageKey, assignedStorageKey, showClosedStorageKey]);
+  }, [storageKey, deferredStorageKey, importantStorageKey, assignedStorageKey, showClosedStorageKey]);
 
   // Fetch contributors on mount
   useEffect(() => {
@@ -121,6 +138,16 @@ export function PRList({ prs, onSelect, selected, owner, repo, token }: Props) {
       console.warn('Failed to save deferred state to localStorage:', error);
     }
   }, [deferredPRs, deferredStorageKey]);
+
+  // Save important PRs to localStorage whenever state changes
+  useEffect(() => {
+    try {
+      const importantArray = Array.from(importantPRs);
+      localStorage.setItem(importantStorageKey, JSON.stringify(importantArray));
+    } catch (error) {
+      console.warn('Failed to save important state to localStorage:', error);
+    }
+  }, [importantPRs, importantStorageKey]);
 
   // Save assigned contributors to localStorage whenever state changes
   useEffect(() => {
@@ -386,6 +413,18 @@ export function PRList({ prs, onSelect, selected, owner, repo, token }: Props) {
     });
   };
 
+  const togglePRImportant = (prNumber: number) => {
+    setImportantPRs(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(prNumber)) {
+        newSet.delete(prNumber);
+      } else {
+        newSet.add(prNumber);
+      }
+      return newSet;
+    });
+  };
+
   const renderPageNumbers = () => {
     const pages: number[] = [];
     if (totalPages <= 6) {
@@ -612,13 +651,28 @@ export function PRList({ prs, onSelect, selected, owner, repo, token }: Props) {
                         </Command>
                       </PopoverContent>
                     </Popover>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className={`h-4 w-4 p-0 transition-colors ${importantPRs.has(pr.number) 
+                        ? 'text-yellow-500 hover:text-yellow-600' 
+                        : 'text-muted-foreground hover:text-yellow-500'
+                      }`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        togglePRImportant(pr.number);
+                      }}
+                      aria-label={`${importantPRs.has(pr.number) ? 'Remove' : 'Mark'} PR #${pr.number} as important`}
+                    >
+                      <Star className={`h-3 w-3 ${importantPRs.has(pr.number) ? 'fill-current' : ''}`} />
+                    </Button>
                   </div>
                   <div
                     role="button"
                     tabIndex={0}
                     className={`flex-1 cursor-pointer transition-all duration-300 ${isSelected ? 'bg-secondary/60 -mx-3 px-3 py-1 rounded' : ''} ${
                       completedPRs.has(pr.number) ? 'opacity-60' : deferredPRs.has(pr.number) ? 'opacity-70 bg-orange-50/30' : ''
-                    }`}
+                    } ${importantPRs.has(pr.number) ? 'border-l-4 border-yellow-400 pl-2' : ''}`}
                     onClick={() => onSelect(pr.number)}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
@@ -647,6 +701,9 @@ export function PRList({ prs, onSelect, selected, owner, repo, token }: Props) {
                           {pr.draft ? (
                             <Badge variant="outline" className="uppercase">Draft</Badge>
                           ) : null}
+                          {importantPRs.has(pr.number) && (
+                            <Star className="h-4 w-4 text-yellow-500 fill-current" />
+                          )}
                           <span>• {pr.title}</span>
                         </div>
                         <div className={`text-sm text-muted-foreground mt-1 transition-all duration-300 ${
