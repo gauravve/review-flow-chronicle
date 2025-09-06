@@ -184,7 +184,11 @@ export function PRList({ prs, onSelect, selected, owner, repo, token }: Props) {
   const filtered = useMemo(() => {
     const nq = numberQuery.trim();
     const tq = titleQuery.trim().toLowerCase();
-    return items.filter((pr: any) => {
+    
+    // Get the top PR (first in sorted order) to ensure it stays at top
+    const topPR = items[0];
+    
+    const regularFiltered = items.filter((pr: any) => {
       const matchesNumber = nq ? String(pr.number).includes(nq) : true;
       const title: string = String(pr.title || '');
       const matchesTitle = tq ? title.toLowerCase().includes(tq) : true;
@@ -203,6 +207,14 @@ export function PRList({ prs, onSelect, selected, owner, repo, token }: Props) {
       // TODO: green build filter requires commit status data
       return matchesNumber && matchesTitle && matchesLabels;
     });
+
+    // If filters are applied and the top PR is not in the filtered results, add it to the top
+    const hasFilters = nq || tq || selectedLabels.size > 0 || showDrafts || showMerged || showClosed;
+    if (hasFilters && topPR && !regularFiltered.some(pr => pr.number === topPR.number)) {
+      return [topPR, ...regularFiltered];
+    }
+    
+    return regularFiltered;
   }, [items, numberQuery, titleQuery, showDrafts, showMerged, showClosed, selectedLabels]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
