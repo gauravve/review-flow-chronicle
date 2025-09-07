@@ -20,8 +20,10 @@ import {
   PaginationPrevious,
 } from '@/components/ui/pagination';
 import { formatDistanceToNow, formatDistanceStrict } from 'date-fns';
-import { Timer, CheckCircle2, XCircle, Clock, ListTodo, CheckCheck, AlertTriangle, X, UserCheck, Users, Star } from 'lucide-react';
+import { Timer, CheckCircle2, XCircle, Clock, ListTodo, CheckCheck, AlertTriangle, X, UserCheck, Users, Star, MessageSquare, ChevronDown, ChevronUp } from 'lucide-react';
 import { useBuildStatuses } from '@/hooks/use-build-status';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Textarea } from '@/components/ui/textarea';
 import { fetchRepositoryContributors, fetchPRApprovalStatus, assignPRToUser, unassignPRFromUser } from '@/lib/github';
 
 type Props = {
@@ -49,6 +51,10 @@ export function PRList({ prs, onSelect, selected, owner, repo, token }: Props) {
   const [selectedLabels, setSelectedLabels] = useState<Set<string>>(new Set());
   const [approvalStatuses, setApprovalStatuses] = useState<Map<number, any>>(new Map());
   const [page, setPage] = useState(1);
+  const [isTemplateOpen, setIsTemplateOpen] = useState(false);
+  const [promptTemplate, setPromptTemplate] = useState(
+    'Please review PR #{prNumber} in repository {repository}.\n\nTitle: {title}\nAuthor: {author}\nURL: {url}\n\nPlease provide a thorough code review focusing on:'
+  );
 
   const items = useMemo(
     () => [...prs].sort((a, b) => {
@@ -69,6 +75,7 @@ export function PRList({ prs, onSelect, selected, owner, repo, token }: Props) {
   const importantStorageKey = `important-prs-${owner}-${repo}`;
   const assignedStorageKey = `assigned-prs-${owner}-${repo}`;
   const showClosedStorageKey = `show-closed-${owner}-${repo}`;
+  const promptTemplateStorageKey = `prompt-template-${owner}-${repo}`;
 
   // Load completed, deferred PRs, assigned contributors and showClosed setting from localStorage on mount
   useEffect(() => {
@@ -101,10 +108,15 @@ export function PRList({ prs, onSelect, selected, owner, repo, token }: Props) {
       if (showClosedStored !== null) {
         setShowClosed(JSON.parse(showClosedStored));
       }
+
+      const promptTemplateStored = localStorage.getItem(promptTemplateStorageKey);
+      if (promptTemplateStored) {
+        setPromptTemplate(promptTemplateStored);
+      }
     } catch (error) {
-      console.warn('Failed to load TODO/deferred/important/assigned/showClosed state from localStorage:', error);
+      console.warn('Failed to load TODO/deferred/important/assigned/showClosed/promptTemplate state from localStorage:', error);
     }
-  }, [storageKey, deferredStorageKey, importantStorageKey, assignedStorageKey, showClosedStorageKey]);
+  }, [storageKey, deferredStorageKey, importantStorageKey, assignedStorageKey, showClosedStorageKey, promptTemplateStorageKey]);
 
   // Fetch contributors on mount
   useEffect(() => {
@@ -167,6 +179,15 @@ export function PRList({ prs, onSelect, selected, owner, repo, token }: Props) {
       console.warn('Failed to save showClosed state to localStorage:', error);
     }
   }, [showClosed, showClosedStorageKey]);
+
+  // Save prompt template to localStorage whenever it changes
+  useEffect(() => {
+    try {
+      localStorage.setItem(promptTemplateStorageKey, promptTemplate);
+    } catch (error) {
+      console.warn('Failed to save prompt template to localStorage:', error);
+    }
+  }, [promptTemplate, promptTemplateStorageKey]);
 
   const pageSize = 20;
 
@@ -437,6 +458,42 @@ export function PRList({ prs, onSelect, selected, owner, repo, token }: Props) {
     });
   };
 
+  const generatePrompt = (pr: any) => {
+    const variables = {
+      prNumber: pr.number.toString(),
+      repository: `${owner}/${repo}`,
+      title: pr.title || '',
+      author: pr.user?.login || 'Unknown',
+      url: `https://github.com/${owner}/${repo}/pull/${pr.number}`
+    };
+
+    let prompt = promptTemplate;
+    Object.entries(variables).forEach(([key, value]) => {
+      const regex = new RegExp(`{${key}}`, 'g');
+      prompt = prompt.replace(regex, value);
+    });
+
+    return prompt;
+  };
+
+  const copyPromptToClipboard = async (pr: any) => {
+    const prompt = generatePrompt(pr);
+    try {
+      await navigator.clipboard.writeText(prompt);
+      // You could add a toast notification here
+      console.log('Prompt copied to clipboard');
+    } catch (error) {
+      console.error('Failed to copy prompt:', error);
+      // Fallback for browsers that don't support clipboard API
+      const textarea = document.createElement('textarea');
+      textarea.value = prompt;
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textarea);
+    }
+  };
+
   const renderPageNumbers = () => {
     const pages: number[] = [];
     if (totalPages <= 6) {
@@ -462,6 +519,39 @@ export function PRList({ prs, onSelect, selected, owner, repo, token }: Props) {
   return (
     <Card className="card-elevated">
       <CardContent className="p-0">
+        {/* PR Prompt Template Section */}
+        <Collapsible open={isTemplateOpen} onOpenChange={setIsTemplateOpen}>
+          <CollapsibleTrigger asChild>
+            <Button
+              variant="ghost" 
+              className="w-full justify-between p-4 h-auto border-b hover:bg-secondary/50"
+            >
+              <div className="flex items-center gap-2">
+                <MessageSquare className="h-4 w-4" />
+                <span className="font-medium">PR Prompt Template</span>
+              </div>
+              {isTemplateOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+            </Button>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="p-4 border-b bg-secondary/20">
+            <div className="space-y-3">
+              <div>
+                <label className="text-sm font-medium mb-2 block">
+                  Customize your PR prompt template
+                </label>
+                <p className="text-xs text-muted-foreground mb-3">
+                  Available variables: {'{prNumber}'}, {'{repository}'}, {'{title}'}, {'{author}'}, {'{url}'}
+                </p>
+                <Textarea
+                  value={promptTemplate}
+                  onChange={(e) => setPromptTemplate(e.target.value)}
+                  placeholder="Enter your prompt template..."
+                  className="min-h-[120px] resize-none"
+                />
+              </div>
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
         {/* TODO Review Metrics */}
         <div className="p-4 md:p-5 border-b bg-secondary/20">
           <div className="flex items-center justify-between mb-3">
@@ -826,10 +916,25 @@ export function PRList({ prs, onSelect, selected, owner, repo, token }: Props) {
                             </Badge>
                           );
                         })()}
+                      </div>
                      </div>
                     </div>
-                  </div>
-                </div>
+                    <div className="flex items-center gap-2 mt-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          copyPromptToClipboard(pr);
+                        }}
+                        className="flex items-center gap-2 h-7 text-xs"
+                        aria-label={`Copy PR prompt for #${pr.number}`}
+                      >
+                        <MessageSquare className="h-3 w-3" />
+                        PR Prompt
+                      </Button>
+                    </div>
+                   </div>
               </li>
             );
           })}
