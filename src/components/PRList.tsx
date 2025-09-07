@@ -813,6 +813,21 @@ export function PRList({ prs, onSelect, selected, owner, repo, token }: Props) {
                         }`}>
                           by {pr.user?.login} • {formatDistanceToNow(new Date(pr.created_at), { addSuffix: true })}
                         </div>
+                        <div className="flex items-center gap-2 mt-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              copyPromptToClipboard(pr);
+                            }}
+                            className="flex items-center gap-2 h-7 text-xs"
+                            aria-label={`Copy PR prompt for #${pr.number}`}
+                          >
+                            <MessageSquare className="h-3 w-3" />
+                            PR Prompt
+                          </Button>
+                        </div>
                         {assignedContributors.has(pr.number) && (
                           <div className="flex items-center gap-2 mt-2">
                             <Badge variant="secondary" className="flex items-center gap-2">
@@ -918,21 +933,6 @@ export function PRList({ prs, onSelect, selected, owner, repo, token }: Props) {
                         })()}
                       </div>
                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 mt-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          copyPromptToClipboard(pr);
-                        }}
-                        className="flex items-center gap-2 h-7 text-xs"
-                        aria-label={`Copy PR prompt for #${pr.number}`}
-                      >
-                        <MessageSquare className="h-3 w-3" />
-                        PR Prompt
-                      </Button>
                     </div>
                    </div>
               </li>
