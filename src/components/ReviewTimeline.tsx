@@ -86,7 +86,7 @@ const SmartContentRenderer = ({ content }: { content: string }) => {
     
     return (
       <div 
-        className="prose prose-sm max-w-none dark:prose-invert [&_a]:text-primary [&_a]:hover:underline [&_a]:break-words [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-sm [&_code]:font-mono [&_pre]:bg-muted/50 [&_pre]:border [&_pre]:border-border [&_pre]:rounded-lg [&_pre]:p-3 [&_pre]:overflow-x-auto [&_blockquote]:border-l-4 [&_blockquote]:border-primary/30 [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:text-muted-foreground [&_ul]:list-disc [&_ul]:list-inside [&_ul]:space-y-1 [&_ol]:list-decimal [&_ol]:list-inside [&_ol]:space-y-1 [&_h1]:text-lg [&_h1]:font-bold [&_h1]:mb-2 [&_h2]:text-base [&_h2]:font-bold [&_h2]:mb-2 [&_h3]:text-sm [&_h3]:font-bold [&_h3]:mb-1 [&_p]:mb-2 [&_p:last-child]:mb-0"
+        className="prose prose-sm max-w-none dark:prose-invert [&_a]:text-primary [&_a]:hover:underline [&_a]:break-words [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-sm [&_code]:font-mono [&_pre]:bg-muted/50 [&_pre]:border [&_pre]:border-border [&_pre]:rounded-lg [&_pre]:p-3 [&_pre]:overflow-x-auto [&_blockquote]:border-l-4 [&_blockquote]:border-primary/30 [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:text-muted-foreground [&_ul]:list-disc [&_ul]:list-inside [&_ul]:space-y-1 [&_ol]:list-decimal [&_ol]:list-inside [&_ol]:space-y-1 [&_h1]:text-lg [&_h1]:font-bold [&_h1]:mb-2 [&_h2]:text-base [&_h2]:font-bold [&_h2]:mb-2 [&_h3]:text-sm [&_h3]:font-bold [&_h3]:mb-1 [&_p]:mb-2 [&_p:last-child]:mb-0 [&_table]:border [&_table]:border-border [&_table]:rounded-lg [&_table]:overflow-hidden [&_th]:border-b [&_th]:border-border [&_th]:bg-muted/50 [&_th]:px-3 [&_th]:py-2 [&_th]:text-left [&_th]:font-semibold [&_td]:border-b [&_td]:border-border [&_td]:px-3 [&_td]:py-2 [&_tr:last-child_td]:border-b-0"
         dangerouslySetInnerHTML={{ __html: sanitizedHTML }}
       />
     );
@@ -138,6 +138,18 @@ const SmartContentRenderer = ({ content }: { content: string }) => {
         ),
         p: ({ children, ...props }) => (
           <p className="mb-2 last:mb-0" {...props}>{children}</p>
+        ),
+        table: ({ children, ...props }) => (
+          <table className="border border-border rounded-lg overflow-hidden w-full" {...props}>{children}</table>
+        ),
+        th: ({ children, ...props }) => (
+          <th className="border-b border-border bg-muted/50 px-3 py-2 text-left font-semibold" {...props}>{children}</th>
+        ),
+        td: ({ children, ...props }) => (
+          <td className="border-b border-border px-3 py-2 last:border-b-0" {...props}>{children}</td>
+        ),
+        tr: ({ children, ...props }) => (
+          <tr className="[&:last-child_td]:border-b-0" {...props}>{children}</tr>
         ),
       }}
     >
