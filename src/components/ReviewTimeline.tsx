@@ -5,6 +5,8 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { GitPullRequest, GitMerge, CheckCircle2, XCircle, Clock, UserCheck, MessageSquare, ExternalLink, ChevronDown, ChevronUp } from 'lucide-react';
 import { format, formatDistanceToNow, differenceInHours, differenceInMinutes } from 'date-fns';
 import { useState } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 type Props = {
   events: TimelineEvent[];
@@ -64,28 +66,57 @@ const formatDuration = (hours: number) => {
   return `${Math.round(hours / 24)}d`;
 };
 
-const formatRichText = (text: string) => {
-  if (!text) return null;
-  
-  // Convert markdown-like formatting to JSX elements
-  const parts = text.split(/(\*\*.*?\*\*|\*.*?\*|`.*?`|https?:\/\/[^\s]+)/g);
-  
-  return parts.map((part, index) => {
-    if (part.startsWith('**') && part.endsWith('**')) {
-      return <strong key={index}>{part.slice(2, -2)}</strong>;
-    }
-    if (part.startsWith('*') && part.endsWith('*')) {
-      return <em key={index}>{part.slice(1, -1)}</em>;
-    }
-    if (part.startsWith('`') && part.endsWith('`')) {
-      return <code key={index} className="bg-muted px-1 py-0.5 rounded text-sm font-mono">{part.slice(1, -1)}</code>;
-    }
-    if (part.match(/^https?:\/\/[^\s]+$/)) {
-      return <a key={index} href={part} target="_blank" rel="noopener" className="text-primary hover:underline break-all">{part}</a>;
-    }
-    return part;
-  });
-};
+const MarkdownRenderer = ({ content }: { content: string }) => (
+  <ReactMarkdown
+    remarkPlugins={[remarkGfm]}
+    className="prose prose-sm max-w-none dark:prose-invert"
+    components={{
+      code: ({ children, className, ...props }) => {
+        const match = /language-(\w+)/.exec(className || '');
+        const isInline = !match;
+        
+        if (isInline) {
+          return <code className="bg-muted px-1 py-0.5 rounded text-sm font-mono" {...props}>{children}</code>;
+        }
+        return (
+          <pre className="bg-muted/50 border border-border rounded-lg p-3 overflow-x-auto">
+            <code className="text-sm font-mono" {...props}>{children}</code>
+          </pre>
+        );
+      },
+      a: ({ children, ...props }) => (
+        <a className="text-primary hover:underline break-words" target="_blank" rel="noopener noreferrer" {...props}>
+          {children}
+        </a>
+      ),
+      blockquote: ({ children, ...props }) => (
+        <blockquote className="border-l-4 border-primary/30 pl-4 italic text-muted-foreground" {...props}>
+          {children}
+        </blockquote>
+      ),
+      ul: ({ children, ...props }) => (
+        <ul className="list-disc list-inside space-y-1" {...props}>{children}</ul>
+      ),
+      ol: ({ children, ...props }) => (
+        <ol className="list-decimal list-inside space-y-1" {...props}>{children}</ol>
+      ),
+      h1: ({ children, ...props }) => (
+        <h1 className="text-lg font-bold mb-2" {...props}>{children}</h1>
+      ),
+      h2: ({ children, ...props }) => (
+        <h2 className="text-base font-bold mb-2" {...props}>{children}</h2>
+      ),
+      h3: ({ children, ...props }) => (
+        <h3 className="text-sm font-bold mb-1" {...props}>{children}</h3>
+      ),
+      p: ({ children, ...props }) => (
+        <p className="mb-2 last:mb-0" {...props}>{children}</p>
+      ),
+    }}
+  >
+    {content}
+  </ReactMarkdown>
+);
 
 const getEventColor = (event: TimelineEvent) => {
   switch (event.type) {
@@ -250,20 +281,20 @@ export function ReviewTimeline({ events, owner, repo, number }: Props) {
                                 </button>
                               )}
                             </div>
-                            <div className="prose prose-sm max-w-none text-foreground/90 leading-relaxed">
+                            <div className="text-foreground/90 leading-relaxed">
                               {hasLongComment && !isExpanded ? (
                                 <>
-                                  <div>{formatRichText(event.body.slice(0, 150))}</div>
+                                  <MarkdownRenderer content={event.body.slice(0, 150)} />
                                   <span className="text-muted-foreground">...</span>
                                 </>
                               ) : (
-                                <div>{formatRichText(event.body)}</div>
+                                <MarkdownRenderer content={event.body} />
                               )}
                             </div>
                           </div>
                         ) : (
                           <div className="text-sm text-foreground/80 bg-muted/50 rounded-lg p-3 border-l-4 border-primary/30">
-                            {formatRichText(event.body)}
+                            <MarkdownRenderer content={event.body} />
                           </div>
                         )}
                       </div>
