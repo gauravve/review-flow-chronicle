@@ -7,6 +7,7 @@ import { format, formatDistanceToNow, differenceInHours, differenceInMinutes } f
 import { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import DOMPurify from 'dompurify';
 
 type Props = {
   events: TimelineEvent[];
@@ -66,57 +67,84 @@ const formatDuration = (hours: number) => {
   return `${Math.round(hours / 24)}d`;
 };
 
-const MarkdownRenderer = ({ content }: { content: string }) => (
-  <ReactMarkdown
-    remarkPlugins={[remarkGfm]}
-    className="prose prose-sm max-w-none dark:prose-invert"
-    components={{
-      code: ({ children, className, ...props }) => {
-        const match = /language-(\w+)/.exec(className || '');
-        const isInline = !match;
-        
-        if (isInline) {
-          return <code className="bg-muted px-1 py-0.5 rounded text-sm font-mono" {...props}>{children}</code>;
-        }
-        return (
-          <pre className="bg-muted/50 border border-border rounded-lg p-3 overflow-x-auto">
-            <code className="text-sm font-mono" {...props}>{children}</code>
-          </pre>
-        );
-      },
-      a: ({ children, ...props }) => (
-        <a className="text-primary hover:underline break-words" target="_blank" rel="noopener noreferrer" {...props}>
-          {children}
-        </a>
-      ),
-      blockquote: ({ children, ...props }) => (
-        <blockquote className="border-l-4 border-primary/30 pl-4 italic text-muted-foreground" {...props}>
-          {children}
-        </blockquote>
-      ),
-      ul: ({ children, ...props }) => (
-        <ul className="list-disc list-inside space-y-1" {...props}>{children}</ul>
-      ),
-      ol: ({ children, ...props }) => (
-        <ol className="list-decimal list-inside space-y-1" {...props}>{children}</ol>
-      ),
-      h1: ({ children, ...props }) => (
-        <h1 className="text-lg font-bold mb-2" {...props}>{children}</h1>
-      ),
-      h2: ({ children, ...props }) => (
-        <h2 className="text-base font-bold mb-2" {...props}>{children}</h2>
-      ),
-      h3: ({ children, ...props }) => (
-        <h3 className="text-sm font-bold mb-1" {...props}>{children}</h3>
-      ),
-      p: ({ children, ...props }) => (
-        <p className="mb-2 last:mb-0" {...props}>{children}</p>
-      ),
-    }}
-  >
-    {content}
-  </ReactMarkdown>
-);
+const isHTMLContent = (content: string): boolean => {
+  // Check for common HTML tags
+  const htmlTagRegex = /<\/?[a-z][\s\S]*>/i;
+  return htmlTagRegex.test(content);
+};
+
+const SmartContentRenderer = ({ content }: { content: string }) => {
+  if (!content) return null;
+
+  if (isHTMLContent(content)) {
+    // Sanitize HTML content for security
+    const sanitizedHTML = DOMPurify.sanitize(content, {
+      ALLOWED_TAGS: ['p', 'br', 'strong', 'b', 'em', 'i', 'u', 'a', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'code', 'pre', 'img', 'hr', 'del', 'ins', 'sup', 'sub', 'table', 'thead', 'tbody', 'tr', 'th', 'td'],
+      ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'target', 'rel', 'class'],
+      ADD_ATTR: ['target', 'rel']
+    });
+    
+    return (
+      <div 
+        className="prose prose-sm max-w-none dark:prose-invert [&_a]:text-primary [&_a]:hover:underline [&_a]:break-words [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5 [&_code]:rounded [&_code]:text-sm [&_code]:font-mono [&_pre]:bg-muted/50 [&_pre]:border [&_pre]:border-border [&_pre]:rounded-lg [&_pre]:p-3 [&_pre]:overflow-x-auto [&_blockquote]:border-l-4 [&_blockquote]:border-primary/30 [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:text-muted-foreground [&_ul]:list-disc [&_ul]:list-inside [&_ul]:space-y-1 [&_ol]:list-decimal [&_ol]:list-inside [&_ol]:space-y-1 [&_h1]:text-lg [&_h1]:font-bold [&_h1]:mb-2 [&_h2]:text-base [&_h2]:font-bold [&_h2]:mb-2 [&_h3]:text-sm [&_h3]:font-bold [&_h3]:mb-1 [&_p]:mb-2 [&_p:last-child]:mb-0"
+        dangerouslySetInnerHTML={{ __html: sanitizedHTML }}
+      />
+    );
+  }
+
+  // Render as markdown
+  return (
+    <ReactMarkdown
+      remarkPlugins={[remarkGfm]}
+      className="prose prose-sm max-w-none dark:prose-invert"
+      components={{
+        code: ({ children, className, ...props }) => {
+          const match = /language-(\w+)/.exec(className || '');
+          const isInline = !match;
+          
+          if (isInline) {
+            return <code className="bg-muted px-1 py-0.5 rounded text-sm font-mono" {...props}>{children}</code>;
+          }
+          return (
+            <pre className="bg-muted/50 border border-border rounded-lg p-3 overflow-x-auto">
+              <code className="text-sm font-mono" {...props}>{children}</code>
+            </pre>
+          );
+        },
+        a: ({ children, ...props }) => (
+          <a className="text-primary hover:underline break-words" target="_blank" rel="noopener noreferrer" {...props}>
+            {children}
+          </a>
+        ),
+        blockquote: ({ children, ...props }) => (
+          <blockquote className="border-l-4 border-primary/30 pl-4 italic text-muted-foreground" {...props}>
+            {children}
+          </blockquote>
+        ),
+        ul: ({ children, ...props }) => (
+          <ul className="list-disc list-inside space-y-1" {...props}>{children}</ul>
+        ),
+        ol: ({ children, ...props }) => (
+          <ol className="list-decimal list-inside space-y-1" {...props}>{children}</ol>
+        ),
+        h1: ({ children, ...props }) => (
+          <h1 className="text-lg font-bold mb-2" {...props}>{children}</h1>
+        ),
+        h2: ({ children, ...props }) => (
+          <h2 className="text-base font-bold mb-2" {...props}>{children}</h2>
+        ),
+        h3: ({ children, ...props }) => (
+          <h3 className="text-sm font-bold mb-1" {...props}>{children}</h3>
+        ),
+        p: ({ children, ...props }) => (
+          <p className="mb-2 last:mb-0" {...props}>{children}</p>
+        ),
+      }}
+    >
+      {content}
+    </ReactMarkdown>
+  );
+};
 
 const getEventColor = (event: TimelineEvent) => {
   switch (event.type) {
@@ -284,17 +312,17 @@ export function ReviewTimeline({ events, owner, repo, number }: Props) {
                             <div className="text-foreground/90 leading-relaxed">
                               {hasLongComment && !isExpanded ? (
                                 <>
-                                  <MarkdownRenderer content={event.body.slice(0, 150)} />
+                                  <SmartContentRenderer content={event.body.slice(0, 150)} />
                                   <span className="text-muted-foreground">...</span>
                                 </>
                               ) : (
-                                <MarkdownRenderer content={event.body} />
+                                <SmartContentRenderer content={event.body} />
                               )}
                             </div>
                           </div>
                         ) : (
                           <div className="text-sm text-foreground/80 bg-muted/50 rounded-lg p-3 border-l-4 border-primary/30">
-                            <MarkdownRenderer content={event.body} />
+                            <SmartContentRenderer content={event.body} />
                           </div>
                         )}
                       </div>
