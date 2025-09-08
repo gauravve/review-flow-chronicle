@@ -311,10 +311,11 @@ export function ReviewTimeline({ events, owner, repo, number }: Props) {
                             </div>
                             <div className="text-foreground/90 leading-relaxed">
                               {hasLongComment && !isExpanded ? (
-                                <>
-                                  <SmartContentRenderer content={event.body.slice(0, 150)} />
-                                  <span className="text-muted-foreground">...</span>
-                                </>
+                                <div className="relative">
+                                  <div className="text-sm text-muted-foreground bg-muted/30 rounded p-2 border-l-2 border-primary/20">
+                                    {event.body.slice(0, 150)}...
+                                  </div>
+                                </div>
                               ) : (
                                 <SmartContentRenderer content={event.body} />
                               )}
